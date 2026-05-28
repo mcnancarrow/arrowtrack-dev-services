@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Arrowtrack Solutions — Custom App Development</title>
+  <title><span style="color:var(--brand)">Arrowtrack</span> Solutions Solutions — Custom App Development</title>
   <meta name="description" content="We build custom iOS, Android, and web apps for small businesses in 30 days. From restaurants to retail — real apps, real fast."/>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -11,8 +11,9 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --brand: #E8431A;
-      --brand-dark: #C23510;
+      --brand: #7C3AED;
+      --brand-dark: #6D28D9;
+      --accent: #22C55E;
       --dark: #0D0D0D;
       --dark2: #1A1A1A;
       --dark3: #252525;
@@ -44,6 +45,7 @@
       display: flex; align-items: center; gap: 10px;
       font-size: 18px; font-weight: 700; color: var(--white); text-decoration: none;
     }
+    .nav-logo span { font-size: 18px; }
     .nav-logo span { color: var(--brand); }
     .nav-links { display: flex; gap: 32px; list-style: none; }
     .nav-links a { color: #aaa; text-decoration: none; font-size: 14px; font-weight: 500; transition: color 0.2s; }
@@ -62,13 +64,13 @@
       display: flex; align-items: center; justify-content: center;
       text-align: center;
       padding: 120px 24px 80px;
-      background: radial-gradient(ellipse at 50% 0%, rgba(232,67,26,0.12) 0%, transparent 70%);
+      background: radial-gradient(ellipse at 50% 0%, rgba(124,58,237,0.15) 0%, transparent 70%);
     }
     .hero-badge {
       display: inline-block;
-      background: rgba(232,67,26,0.12);
-      border: 1px solid rgba(232,67,26,0.3);
-      color: var(--brand);
+      background: rgba(34,197,94,0.12);
+      border: 1px solid rgba(34,197,94,0.3);
+      color: var(--accent);
       font-size: 13px; font-weight: 600;
       padding: 6px 16px; border-radius: 100px;
       margin-bottom: 28px;
@@ -121,7 +123,7 @@
       gap: 32px; text-align: center;
     }
     .stat-number {
-      font-size: 40px; font-weight: 800; color: var(--brand);
+      font-size: 40px; font-weight: 800; color: var(--accent);
       line-height: 1;
     }
     .stat-label { font-size: 14px; color: #888; margin-top: 6px; }
@@ -131,7 +133,7 @@
     .container { max-width: 1100px; margin: 0 auto; }
     .section-label {
       font-size: 12px; font-weight: 700; letter-spacing: 0.1em;
-      text-transform: uppercase; color: var(--brand);
+      text-transform: uppercase; color: var(--accent);
       margin-bottom: 16px;
     }
     .section-title {
@@ -160,7 +162,7 @@
     .portfolio-card:hover { border-color: var(--brand); transform: translateY(-4px); }
     .portfolio-tag {
       display: inline-block;
-      background: rgba(232,67,26,0.12); color: var(--brand);
+      background: rgba(34,197,94,0.12); color: var(--accent);
       font-size: 11px; font-weight: 700; text-transform: uppercase;
       letter-spacing: 0.08em; padding: 4px 10px; border-radius: 6px;
       margin-bottom: 16px;
@@ -191,7 +193,7 @@
     }
     .package-card.featured {
       border-color: var(--brand);
-      background: linear-gradient(135deg, rgba(232,67,26,0.08), var(--dark2));
+      background: linear-gradient(135deg, rgba(124,58,237,0.08), var(--dark2));
     }
     .featured-badge {
       position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
@@ -199,7 +201,7 @@
       font-size: 11px; font-weight: 700; text-transform: uppercase;
       letter-spacing: 0.08em; padding: 4px 14px; border-radius: 100px;
     }
-    .package-name { font-size: 14px; font-weight: 700; color: var(--brand); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+    .package-name { font-size: 14px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
     .package-price { font-size: 48px; font-weight: 800; line-height: 1; margin-bottom: 4px; }
     .package-price span { font-size: 20px; font-weight: 400; color: #666; }
     .package-delivery { font-size: 14px; color: #888; margin-bottom: 28px; padding-bottom: 24px; border-bottom: 1px solid rgba(255,255,255,0.07); }
@@ -209,7 +211,7 @@
       padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04);
       display: flex; align-items: flex-start; gap: 10px;
     }
-    .package-features li::before { content: "✓"; color: var(--brand); font-weight: 700; flex-shrink: 0; }
+    .package-features li::before { content: "✓"; color: var(--accent); font-weight: 700; flex-shrink: 0; }
     .package-btn {
       display: block; text-align: center;
       padding: 14px; border-radius: 10px;
@@ -236,11 +238,11 @@
     }
     .step-number {
       width: 40px; height: 40px;
-      background: rgba(232,67,26,0.12);
-      border: 1px solid rgba(232,67,26,0.3);
+      background: rgba(34,197,94,0.12);
+      border: 1px solid rgba(34,197,94,0.3);
       border-radius: 10px;
       display: flex; align-items: center; justify-content: center;
-      font-size: 16px; font-weight: 800; color: var(--brand);
+      font-size: 16px; font-weight: 800; color: var(--accent);
       margin-bottom: 20px;
     }
     .process-step h3 { font-size: 17px; font-weight: 700; margin-bottom: 10px; }
@@ -265,9 +267,9 @@
 
     /* CTA */
     .cta-section {
-      background: linear-gradient(135deg, rgba(232,67,26,0.15), rgba(232,67,26,0.05));
-      border-top: 1px solid rgba(232,67,26,0.2);
-      border-bottom: 1px solid rgba(232,67,26,0.2);
+      background: linear-gradient(135deg, rgba(124,58,237,0.15), rgba(34,197,94,0.05));
+      border-top: 1px solid rgba(124,58,237,0.2);
+      border-bottom: 1px solid rgba(124,58,237,0.2);
       text-align: center;
       padding: 100px 24px;
     }
@@ -319,7 +321,7 @@
       text-align: center;
     }
     .footer-logo { font-size: 20px; font-weight: 800; margin-bottom: 12px; }
-    .footer-logo span { color: var(--brand); }
+    .footer-logo span { font-size: 20px; }
     .footer-links { display: flex; gap: 24px; justify-content: center; flex-wrap: wrap; margin-bottom: 24px; }
     .footer-links a { color: #666; font-size: 14px; text-decoration: none; }
     .footer-links a:hover { color: var(--white); }
@@ -338,7 +340,7 @@
 
 <!-- NAV -->
 <nav>
-  <a href="#" class="nav-logo">Arrow<span>track</span></a>
+  <a href="#" class="nav-logo"><span style="color:var(--brand)">Arrowtrack</span> Solutions</a>
   <ul class="nav-links">
     <li><a href="#portfolio">Portfolio</a></li>
     <li><a href="#packages">Packages</a></li>
@@ -405,7 +407,7 @@
 
       <div class="portfolio-card">
         <div class="portfolio-tag">Field Ops · SaaS · Mobile</div>
-        <h3>TaskCheck by Arrowtrack</h3>
+        <h3>TaskCheck by <span style="color:var(--brand)">Arrowtrack</span> Solutions</h3>
         <p>Field operations management platform. Real-time GPS tracking, QR check-ins, route management, digital timekeeping, and photo documentation for field teams.</p>
         <div class="portfolio-stats">
           <div class="p-stat"><strong>Live</strong>Production</div>
@@ -588,20 +590,20 @@
         <div class="form-row">
           <div class="form-group">
             <label>First Name</label>
-            <input type="text" placeholder="Matthew" required/>
+            <input type="text" name="firstName" placeholder="Your first name" required/>
           </div>
           <div class="form-group">
             <label>Last Name</label>
-            <input type="text" placeholder="Nancarrow" required/>
+            <input type="text" name="lastName" placeholder="Your last name" required/>
           </div>
         </div>
         <div class="form-group">
           <label>Email</label>
-          <input type="email" placeholder="you@yourbusiness.com" required/>
+          <input type="email" name="email" placeholder="you@yourbusiness.com" required/>
         </div>
         <div class="form-group">
           <label>Business Type</label>
-          <select>
+          <select name="businessType">
             <option value="">Select your industry...</option>
             <option>Restaurant / Food & Beverage</option>
             <option>Retail</option>
@@ -614,7 +616,7 @@
         </div>
         <div class="form-group">
           <label>Package Interest</label>
-          <select>
+          <select name="package">
             <option value="">Select a package...</option>
             <option>Starter — $4,999</option>
             <option>Growth — $9,999</option>
@@ -624,10 +626,11 @@
         </div>
         <div class="form-group">
           <label>Tell us about your app idea</label>
-          <textarea placeholder="What does your business do? What problem should the app solve? What features are most important?"></textarea>
+          <textarea name="message" placeholder="What does your business do? What problem should the app solve? What features are most important?"></textarea>
         </div>
         <button type="submit" class="form-submit">Send My Project Details →</button>
         <div id="form-success">✅ Message sent! We'll be in touch within 24 hours.</div>
+        <div id="form-error" style="display:none;text-align:center;padding:20px;color:#ef4444;font-weight:600;">❌ Something went wrong. Please try again.</div>
       </form>
     </div>
   </div>
@@ -635,20 +638,40 @@
 
 <!-- FOOTER -->
 <footer>
-  <div class="footer-logo">Arrow<span>track</span> Solutions</div>
+  <div class="footer-logo"><span style="color:var(--brand)">Arrowtrack</span> Solutions Solutions</div>
   <div class="footer-links">
     <a href="https://arrowtrackusa.com">TaskCheck</a>
     <a href="https://www.delib.io">Delib.io</a>
-    <a href="mailto:matthew.nancarrow@gmail.com">matthew.nancarrow@gmail.com</a>
+    <a href="#contact">Get a Quote</a>
   </div>
-  <div class="footer-copy">© 2026 Arrowtrack Solutions LLC · Matthew Nancarrow · Santa Barbara, CA</div>
+  <div class="footer-copy">© 2026 <span style="color:var(--brand)">Arrowtrack</span> Solutions LLC · Carpinteria, CA</div>
 </footer>
 
 <script>
-  document.getElementById('contactForm').addEventListener('submit', function(e) {
+  document.getElementById('contactForm').addEventListener('submit', async function(e) {
     e.preventDefault();
-    document.getElementById('form-success').style.display = 'block';
-    this.reset();
+    const btn = this.querySelector('.form-submit');
+    btn.textContent = 'Sending...';
+    btn.disabled = true;
+    const data = Object.fromEntries(new FormData(this));
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      if (res.ok) {
+        document.getElementById('form-success').style.display = 'block';
+        document.getElementById('form-error').style.display = 'none';
+        this.reset();
+      } else {
+        document.getElementById('form-error').style.display = 'block';
+      }
+    } catch(err) {
+      document.getElementById('form-error').style.display = 'block';
+    }
+    btn.textContent = 'Send My Project Details →';
+    btn.disabled = false;
   });
 
   // Smooth reveal on scroll
