@@ -6,6 +6,31 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// ─── Admin auth (HTTP Basic) ────────────────────────────────────
+// Credentials come from env vars only — never hardcoded.
+// If unset, admin is locked down entirely (fail closed) rather than left open.
+function requireAdminAuth(req, res, next) {
+  const USER = process.env.ADMIN_USER;
+  const PASS = process.env.ADMIN_PASS;
+  if (!USER || !PASS) {
+    return res.status(503).send('Admin is not configured. Set ADMIN_USER and ADMIN_PASS environment variables.');
+  }
+  const header = req.headers.authorization || '';
+  const [scheme, encoded] = header.split(' ');
+  if (scheme === 'Basic' && encoded) {
+    const decoded = Buffer.from(encoded, 'base64').toString('utf8');
+    const idx = decoded.indexOf(':');
+    const user = decoded.slice(0, idx);
+    const pass = decoded.slice(idx + 1);
+    if (user === USER && pass === PASS) return next();
+  }
+  res.set('WWW-Authenticate', 'Basic realm="Arrowtrack Forge Admin", charset="UTF-8"');
+  return res.status(401).send('Authentication required.');
+}
+// Guard the admin page, its static HTML, and the admin API — BEFORE static serving.
+app.use(['/admin', '/admin.html'], requireAdminAuth);
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ─── JSON storage for project briefs ───────────────────────────
