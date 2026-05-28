@@ -403,6 +403,20 @@ app.put('/admin/api/submissions/:id', async (req, res) => {
   if (idx === -1) return res.status(404).json({ error: 'Not found' });
   db[idx].status = req.body.status; await writeDB(db); res.json({ success: true });
 });
+app.delete('/admin/api/submissions/:id', async (req, res) => {
+  const db = await readDB(); const idx = db.findIndex(r => r.id == req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Not found' });
+  const [removed] = db.splice(idx, 1);
+  await writeDB(db);
+  // Remove the customer's account too if they have no other submissions left.
+  const email = normEmail(removed.client_email);
+  if (email && !db.some(r => normEmail(r.client_email) === email)) {
+    const accts = await readAccounts();
+    const filtered = accts.filter(a => a.email !== email);
+    if (filtered.length !== accts.length) await writeAccounts(filtered);
+  }
+  res.json({ success: true });
+});
 
 // ─── Customer auth API ──────────────────────────────────────────
 app.post('/api/login', async (req, res) => {
