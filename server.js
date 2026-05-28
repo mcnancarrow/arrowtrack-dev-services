@@ -45,24 +45,63 @@ app.use(['/admin', '/admin.html'], requireAdminAuth);
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ─── JSON storage for project briefs ───────────────────────────
+// ─── Storage: Railway Postgres when DATABASE_URL is set, else local JSON ─
+// Both submissions and accounts are stored as whole-collection JSON documents
+// in a single key/value table. This mirrors the original JSON-file semantics
+// (read the whole array, mutate, write the whole array) so the request
+// handlers stay identical — only the backend swaps.
 const DB_FILE = path.join(__dirname, 'submissions.json');
-function readDB() {
-  if (!fs.existsSync(DB_FILE)) fs.writeFileSync(DB_FILE, '[]');
-  try { return JSON.parse(fs.readFileSync(DB_FILE, 'utf8')); } catch { return []; }
-}
-function writeDB(data) { fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2)); }
-function genRef() { return 'SOW-' + Date.now().toString(36).toUpperCase(); }
-
-// ─── Customer accounts (email + password) ───────────────────────
-// NOTE: JSON-file storage is ephemeral on Railway (wiped on redeploy).
-// Move to a real DB (Railway Postgres) before relying on this in production.
 const ACCT_FILE = path.join(__dirname, 'accounts.json');
-function readAccounts() {
-  if (!fs.existsSync(ACCT_FILE)) fs.writeFileSync(ACCT_FILE, '[]');
-  try { return JSON.parse(fs.readFileSync(ACCT_FILE, 'utf8')); } catch { return []; }
+const USE_PG = !!process.env.DATABASE_URL;
+let pgPool = null;
+if (USE_PG) {
+  const { Pool } = require('pg');
+  pgPool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.PGSSLMODE === 'disable' ? false : { rejectUnauthorized: false }
+  });
 }
-function writeAccounts(data) { fs.writeFileSync(ACCT_FILE, JSON.stringify(data, null, 2)); }
+
+async function getStore(key, file) {
+  if (USE_PG) {
+    const { rows } = await pgPool.query('SELECT value FROM forge_kv WHERE key = $1', [key]);
+    return rows.length ? rows[0].value : [];
+  }
+  if (!fs.existsSync(file)) fs.writeFileSync(file, '[]');
+  try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return []; }
+}
+async function setStore(key, file, data) {
+  if (USE_PG) {
+    await pgPool.query(
+      'INSERT INTO forge_kv (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = $2',
+      [key, JSON.stringify(data)]
+    );
+    return;
+  }
+  fs.writeFileSync(file, JSON.stringify(data, null, 2));
+}
+
+const readDB        = ()  => getStore('submissions', DB_FILE);
+const writeDB       = (d) => setStore('submissions', DB_FILE, d);
+const readAccounts  = ()  => getStore('accounts', ACCT_FILE);
+const writeAccounts = (d) => setStore('accounts', ACCT_FILE, d);
+const genRef = () => 'SOW-' + Date.now().toString(36).toUpperCase();
+
+// Create the table on boot and, if it's empty, seed from any existing JSON files.
+async function initStorage() {
+  if (!USE_PG) { console.log('Storage: local JSON files (set DATABASE_URL for Railway Postgres)'); return; }
+  await pgPool.query("CREATE TABLE IF NOT EXISTS forge_kv (key TEXT PRIMARY KEY, value JSONB NOT NULL DEFAULT '[]')");
+  for (const [key, file] of [['submissions', DB_FILE], ['accounts', ACCT_FILE]]) {
+    const { rows } = await pgPool.query('SELECT 1 FROM forge_kv WHERE key = $1', [key]);
+    if (!rows.length) {
+      let seed = [];
+      if (fs.existsSync(file)) { try { seed = JSON.parse(fs.readFileSync(file, 'utf8')); } catch {} }
+      await pgPool.query('INSERT INTO forge_kv (key, value) VALUES ($1, $2)', [key, JSON.stringify(seed)]);
+    }
+  }
+  console.log('Storage: Railway Postgres (persistent across deploys)');
+}
+
 const normEmail = e => String(e || '').trim().toLowerCase();
 
 // Password hashing via built-in scrypt (no native deps)
@@ -276,20 +315,20 @@ app.post('/api/submit', async (req, res) => {
   const rawPassword = data.password;
   delete data.password;
   if (rawPassword && data.client_email) {
-    const accts = readAccounts();
+    const accts = await readAccounts();
     const email = normEmail(data.client_email);
     if (!accts.find(a => a.email === email)) {
       accts.push({ email, name: data.client_name || '', password: hashPassword(rawPassword), created_at: new Date().toISOString() });
-      writeAccounts(accts);
+      await writeAccounts(accts);
     }
     setSessionCookie(res, email);
   }
 
-  const db = readDB();
+  const db = await readDB();
   db.push({ id: Date.now(), ref_code: ref, client_name: data.client_name, client_email: data.client_email,
     company_name: data.company_name, project_name: data.project_name, quote_total: quote.total,
     status: 'new', created_at: new Date().toISOString(), data });
-  writeDB(db);
+  await writeDB(db);
 
   const sowText = formatSOW(data, quote);
   const htmlEmail = (title, body) => `<div style="font-family:Arial,sans-serif;max-width:680px;margin:0 auto;background:#0d0d0d;color:#fff;padding:40px;border-radius:12px;">
@@ -350,24 +389,25 @@ app.post('/api/checkout', async (req, res) => {
 });
 
 // ─── Admin API ──────────────────────────────────────────────────
-app.get('/admin/api/submissions', (req, res) => {
-  res.json(readDB().map(r => ({ id:r.id, ref_code:r.ref_code, client_name:r.client_name, client_email:r.client_email, company_name:r.company_name, project_name:r.project_name, quote_total:r.quote_total, status:r.status, created_at:r.created_at })).reverse());
+app.get('/admin/api/submissions', async (req, res) => {
+  const db = await readDB();
+  res.json(db.map(r => ({ id:r.id, ref_code:r.ref_code, client_name:r.client_name, client_email:r.client_email, company_name:r.company_name, project_name:r.project_name, quote_total:r.quote_total, status:r.status, created_at:r.created_at })).reverse());
 });
-app.get('/admin/api/submissions/:id', (req, res) => {
-  const row = readDB().find(r => r.id == req.params.id);
+app.get('/admin/api/submissions/:id', async (req, res) => {
+  const row = (await readDB()).find(r => r.id == req.params.id);
   if (!row) return res.status(404).json({ error: 'Not found' });
   res.json(row);
 });
-app.put('/admin/api/submissions/:id', (req, res) => {
-  const db = readDB(); const idx = db.findIndex(r => r.id == req.params.id);
+app.put('/admin/api/submissions/:id', async (req, res) => {
+  const db = await readDB(); const idx = db.findIndex(r => r.id == req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Not found' });
-  db[idx].status = req.body.status; writeDB(db); res.json({ success: true });
+  db[idx].status = req.body.status; await writeDB(db); res.json({ success: true });
 });
 
 // ─── Customer auth API ──────────────────────────────────────────
-app.post('/api/login', (req, res) => {
+app.post('/api/login', async (req, res) => {
   const email = normEmail(req.body.email);
-  const acct = readAccounts().find(a => a.email === email);
+  const acct = (await readAccounts()).find(a => a.email === email);
   if (!acct || !verifyPassword(req.body.password, acct.password)) {
     return res.status(401).json({ error: 'Invalid email or password' });
   }
@@ -377,16 +417,16 @@ app.post('/api/login', (req, res) => {
 
 app.post('/api/logout', (req, res) => { clearSessionCookie(res); res.json({ success: true }); });
 
-app.get('/api/me', (req, res) => {
+app.get('/api/me', async (req, res) => {
   const email = verifySession(req.cookies.forge_session);
   if (!email) return res.status(401).json({ error: 'Not logged in' });
-  const acct = readAccounts().find(a => a.email === email);
+  const acct = (await readAccounts()).find(a => a.email === email);
   res.json({ email, name: acct ? acct.name : '' });
 });
 
 // All projects belonging to the logged-in customer
-app.get('/api/my-projects', requireCustomer, (req, res) => {
-  const mine = readDB().filter(r => normEmail(r.client_email) === req.customerEmail)
+app.get('/api/my-projects', requireCustomer, async (req, res) => {
+  const mine = (await readDB()).filter(r => normEmail(r.client_email) === req.customerEmail)
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   res.json(mine.map(r => {
     const q = computeQuote(r.data || {});
@@ -403,7 +443,7 @@ app.get('/api/my-projects', requireCustomer, (req, res) => {
 // Pay the remaining balance on a delivered project (customer's own Stripe checkout)
 app.post('/api/pay-balance', requireCustomer, async (req, res) => {
   const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
-  const row = readDB().find(r => r.ref_code === req.body.ref_code && normEmail(r.client_email) === req.customerEmail);
+  const row = (await readDB()).find(r => r.ref_code === req.body.ref_code && normEmail(r.client_email) === req.customerEmail);
   if (!row) return res.status(404).json({ error: 'Project not found' });
   const q = computeQuote(row.data || {});
   const balance = Math.max(0, q.total - q.deposit);
@@ -440,4 +480,6 @@ app.get('/project', (req, res) => res.sendFile(path.join(__dirname, 'public', 'p
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-app.listen(PORT, () => console.log(`Arrowtrack Dev Services running on port ${PORT}`));
+initStorage()
+  .catch(err => console.error('Storage init failed:', err))
+  .finally(() => app.listen(PORT, () => console.log(`Arrowtrack Dev Services running on port ${PORT}`)));
