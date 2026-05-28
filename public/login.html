@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Arrowtrack Forge — Log In</title>
+  <meta name="description" content="Log in to track your Arrowtrack Forge project."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --brand: #7C3AED; --brand-dark: #6D28D9; --accent: #22C55E; --dark: #0D0D0D; --dark2: #1A1A1A; --gray: #888; --white: #fff; }
+    body { font-family: 'Inter', sans-serif; background: var(--dark); color: var(--white); min-height: 100vh; display: flex; flex-direction: column; }
+    header { display: flex; align-items: center; justify-content: space-between; padding: 20px 40px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .logo { font-size: 18px; font-weight: 800; text-decoration: none; }
+    .logo span:first-child { color: var(--brand); }
+    .logo span:last-child { color: var(--white); }
+    .wrap { flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px 24px; }
+    .card { width: 100%; max-width: 420px; background: var(--dark2); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 40px; }
+    .eyebrow { font-size: 12px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; }
+    h1 { font-size: 28px; font-weight: 800; margin-bottom: 6px; letter-spacing: -0.02em; }
+    h1 span { color: var(--brand); }
+    .sub { font-size: 14px; color: var(--gray); margin-bottom: 28px; line-height: 1.5; }
+    .field { margin-bottom: 18px; }
+    .field label { display: block; font-size: 13px; font-weight: 600; color: #aaa; margin-bottom: 8px; }
+    .field input { width: 100%; background: var(--dark); border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; padding: 14px 16px; color: var(--white); font-size: 15px; font-family: inherit; outline: none; transition: border-color 0.2s; }
+    .field input:focus { border-color: var(--brand); }
+    .btn { width: 100%; background: var(--brand); color: #fff; border: none; border-radius: 10px; padding: 14px; font-size: 15px; font-weight: 700; cursor: pointer; transition: background 0.2s; margin-top: 6px; }
+    .btn:hover { background: var(--brand-dark); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .msg { font-size: 13px; padding: 12px 14px; border-radius: 8px; margin-bottom: 18px; display: none; line-height: 1.5; }
+    .msg.error { display: block; background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.3); color: #fca5a5; }
+    .alt { text-align: center; font-size: 13px; color: var(--gray); margin-top: 22px; }
+    .alt a { color: var(--accent); text-decoration: none; font-weight: 600; cursor: pointer; }
+    .alt a:hover { text-decoration: underline; }
+    .admin-link { font-size: 12px; color: #555; text-decoration: none; }
+    .admin-link:hover { color: var(--gray); }
+    footer { text-align: center; padding: 24px; font-size: 12px; color: #444; }
+  </style>
+</head>
+<body>
+<header>
+  <a class="logo" href="/"><span>Arrowtrack</span><span> Forge</span></a>
+  <a class="admin-link" href="/admin">Admin →</a>
+</header>
+
+<div class="wrap">
+  <div class="card">
+    <div class="eyebrow">Customer Portal</div>
+    <h1>Track your <span>project.</span></h1>
+    <p class="sub">Log in to see your build status, quote, and pay your balance.</p>
+
+    <div class="msg error" id="errorMsg"></div>
+
+    <div class="field">
+      <label>Email</label>
+      <input type="email" id="email" placeholder="you@company.com" autocomplete="email"/>
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="password" placeholder="••••••••" autocomplete="current-password"/>
+    </div>
+    <button class="btn" id="loginBtn" onclick="login()">Log In →</button>
+
+    <div class="alt">
+      No account yet? <a href="/build">Start a project</a> — your login is created when you submit.
+    </div>
+  </div>
+</div>
+
+<footer>Arrowtrack Solutions LLC · Carpinteria, CA</footer>
+
+<script>
+  const errEl = document.getElementById('errorMsg');
+  function showError(m) { errEl.textContent = m; errEl.classList.add('error'); errEl.style.display = 'block'; }
+
+  async function login() {
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+    if (!email || !password) { showError('Please enter your email and password.'); return; }
+    const btn = document.getElementById('loginBtn');
+    btn.disabled = true; btn.textContent = 'Logging in...';
+    errEl.style.display = 'none';
+    try {
+      const res = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
+      const data = await res.json();
+      if (data.success) { window.location.href = '/project'; }
+      else { showError(data.error || 'Login failed.'); btn.disabled = false; btn.textContent = 'Log In →'; }
+    } catch (err) {
+      showError('Network error. Please try again.'); btn.disabled = false; btn.textContent = 'Log In →';
+    }
+  }
+
+  // Enter key submits
+  document.querySelectorAll('#email, #password').forEach(el =>
+    el.addEventListener('keydown', e => { if (e.key === 'Enter') login(); }));
+
+  // If already logged in, go straight to the portal
+  fetch('/api/me').then(r => { if (r.ok) window.location.href = '/project'; });
+</script>
+</body>
+</html>

@@ -1,11 +1,23 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// ─── Minimal cookie parser (no extra deps) ──────────────────────
+app.use((req, res, next) => {
+  req.cookies = {};
+  const raw = req.headers.cookie;
+  if (raw) raw.split(';').forEach(c => {
+    const i = c.indexOf('=');
+    if (i > -1) req.cookies[c.slice(0, i).trim()] = decodeURIComponent(c.slice(i + 1).trim());
+  });
+  next();
+});
 
 // ─── Admin auth (HTTP Basic) ────────────────────────────────────
 // Credentials come from env vars only — never hardcoded.
@@ -41,6 +53,64 @@ function readDB() {
 }
 function writeDB(data) { fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2)); }
 function genRef() { return 'SOW-' + Date.now().toString(36).toUpperCase(); }
+
+// ─── Customer accounts (email + password) ───────────────────────
+// NOTE: JSON-file storage is ephemeral on Railway (wiped on redeploy).
+// Move to a real DB (Railway Postgres) before relying on this in production.
+const ACCT_FILE = path.join(__dirname, 'accounts.json');
+function readAccounts() {
+  if (!fs.existsSync(ACCT_FILE)) fs.writeFileSync(ACCT_FILE, '[]');
+  try { return JSON.parse(fs.readFileSync(ACCT_FILE, 'utf8')); } catch { return []; }
+}
+function writeAccounts(data) { fs.writeFileSync(ACCT_FILE, JSON.stringify(data, null, 2)); }
+const normEmail = e => String(e || '').trim().toLowerCase();
+
+// Password hashing via built-in scrypt (no native deps)
+function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(String(password), salt, 64).toString('hex');
+  return `${salt}:${hash}`;
+}
+function verifyPassword(password, stored) {
+  if (!stored || !stored.includes(':')) return false;
+  const [salt, hash] = stored.split(':');
+  const test = crypto.scryptSync(String(password), salt, 64).toString('hex');
+  const a = Buffer.from(hash, 'hex'), b = Buffer.from(test, 'hex');
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+// ─── Sessions (signed httpOnly cookie, no extra deps) ────────────
+const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
+if (!process.env.SESSION_SECRET) console.warn('⚠ SESSION_SECRET not set — using a random secret; logins will reset on restart. Set SESSION_SECRET in Railway.');
+const SESSION_DAYS = 30;
+function signSession(email) {
+  const exp = Date.now() + SESSION_DAYS * 864e5;
+  const payload = Buffer.from(`${normEmail(email)}|${exp}`).toString('base64url');
+  const sig = crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest('base64url');
+  return `${payload}.${sig}`;
+}
+function verifySession(token) {
+  if (!token || !token.includes('.')) return null;
+  const [payload, sig] = token.split('.');
+  const expected = crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest('base64url');
+  if (sig.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
+  const [email, exp] = Buffer.from(payload, 'base64url').toString().split('|');
+  if (Date.now() > Number(exp)) return null;
+  return email;
+}
+function setSessionCookie(res, email) {
+  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+  res.set('Set-Cookie', `forge_session=${signSession(email)}; HttpOnly; Path=/; Max-Age=${SESSION_DAYS * 86400}; SameSite=Lax${secure}`);
+}
+function clearSessionCookie(res) {
+  res.set('Set-Cookie', 'forge_session=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax');
+}
+function requireCustomer(req, res, next) {
+  const email = verifySession(req.cookies.forge_session);
+  if (!email) return res.status(401).json({ error: 'Not logged in' });
+  req.customerEmail = email;
+  next();
+}
 
 // ─── Pricing engine (single source of truth) ───────────────────
 const PRICING = {
@@ -201,6 +271,20 @@ app.post('/api/submit', async (req, res) => {
   data.quote_total = quote.total;
   data.quote_deposit = quote.deposit;
 
+  // Create a customer account on first submit if a password was provided, then log them in.
+  // Strip the raw password BEFORE persisting so it never lands in submissions.json.
+  const rawPassword = data.password;
+  delete data.password;
+  if (rawPassword && data.client_email) {
+    const accts = readAccounts();
+    const email = normEmail(data.client_email);
+    if (!accts.find(a => a.email === email)) {
+      accts.push({ email, name: data.client_name || '', password: hashPassword(rawPassword), created_at: new Date().toISOString() });
+      writeAccounts(accts);
+    }
+    setSessionCookie(res, email);
+  }
+
   const db = readDB();
   db.push({ id: Date.now(), ref_code: ref, client_name: data.client_name, client_email: data.client_email,
     company_name: data.company_name, project_name: data.project_name, quote_total: quote.total,
@@ -280,8 +364,79 @@ app.put('/admin/api/submissions/:id', (req, res) => {
   db[idx].status = req.body.status; writeDB(db); res.json({ success: true });
 });
 
+// ─── Customer auth API ──────────────────────────────────────────
+app.post('/api/login', (req, res) => {
+  const email = normEmail(req.body.email);
+  const acct = readAccounts().find(a => a.email === email);
+  if (!acct || !verifyPassword(req.body.password, acct.password)) {
+    return res.status(401).json({ error: 'Invalid email or password' });
+  }
+  setSessionCookie(res, email);
+  res.json({ success: true, name: acct.name, email });
+});
+
+app.post('/api/logout', (req, res) => { clearSessionCookie(res); res.json({ success: true }); });
+
+app.get('/api/me', (req, res) => {
+  const email = verifySession(req.cookies.forge_session);
+  if (!email) return res.status(401).json({ error: 'Not logged in' });
+  const acct = readAccounts().find(a => a.email === email);
+  res.json({ email, name: acct ? acct.name : '' });
+});
+
+// All projects belonging to the logged-in customer
+app.get('/api/my-projects', requireCustomer, (req, res) => {
+  const mine = readDB().filter(r => normEmail(r.client_email) === req.customerEmail)
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  res.json(mine.map(r => {
+    const q = computeQuote(r.data || {});
+    return {
+      ref_code: r.ref_code, project_name: r.project_name, company_name: r.company_name,
+      status: r.status, created_at: r.created_at,
+      quote_total: q.total, quote_deposit: q.deposit, balance_due: Math.max(0, q.total - q.deposit),
+      deposit_paid: !!r.deposit_paid, balance_paid: !!r.balance_paid,
+      data: r.data
+    };
+  }));
+});
+
+// Pay the remaining balance on a delivered project (customer's own Stripe checkout)
+app.post('/api/pay-balance', requireCustomer, async (req, res) => {
+  const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
+  const row = readDB().find(r => r.ref_code === req.body.ref_code && normEmail(r.client_email) === req.customerEmail);
+  if (!row) return res.status(404).json({ error: 'Project not found' });
+  const q = computeQuote(row.data || {});
+  const balance = Math.max(0, q.total - q.deposit);
+  if (balance === 0) return res.json({ demo: true, message: 'No balance due on this project.' });
+  if (!STRIPE_SECRET_KEY) {
+    return res.json({ demo: true, message: `Remaining balance of $${balance.toLocaleString()} would be charged here once Stripe is connected.` });
+  }
+  try {
+    const origin = req.headers.origin || `http://localhost:${PORT}`;
+    const params = new URLSearchParams();
+    params.append('mode', 'payment');
+    params.append('success_url', `${origin}/project?balance_paid=1`);
+    params.append('cancel_url', `${origin}/project`);
+    params.append('line_items[0][price_data][currency]', 'usd');
+    params.append('line_items[0][price_data][product_data][name]', `${row.project_name || 'Project'} — Final Balance`);
+    params.append('line_items[0][price_data][unit_amount]', String(balance * 100));
+    params.append('line_items[0][quantity]', '1');
+    params.append('customer_email', req.customerEmail);
+    const r = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${STRIPE_SECRET_KEY}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params
+    });
+    const session = await r.json();
+    if (session.url) res.json({ url: session.url });
+    else { console.error('Stripe error:', session); res.status(500).json({ error: 'Checkout failed' }); }
+  } catch (err) { console.error('Balance checkout error:', err); res.status(500).json({ error: 'Server error' }); }
+});
+
 // ─── Routes ─────────────────────────────────────────────────────
 app.get('/build', (req, res) => res.sendFile(path.join(__dirname, 'public', 'build.html')));
+app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
+app.get('/project', (req, res) => res.sendFile(path.join(__dirname, 'public', 'project.html')));
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 

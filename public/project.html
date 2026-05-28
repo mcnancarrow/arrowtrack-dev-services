@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Arrowtrack Forge — My Project</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --brand: #7C3AED; --brand-dark: #6D28D9; --accent: #22C55E; --dark: #0D0D0D; --dark2: #1A1A1A; --dark3: #252525; --gray: #888; --white: #fff; }
+    body { font-family: 'Inter', sans-serif; background: var(--dark); color: var(--white); min-height: 100vh; }
+    header { display: flex; align-items: center; justify-content: space-between; padding: 20px 40px; border-bottom: 1px solid rgba(255,255,255,0.06); position: sticky; top: 0; background: rgba(13,13,13,0.96); backdrop-filter: blur(12px); z-index: 50; }
+    .logo { font-size: 18px; font-weight: 800; text-decoration: none; }
+    .logo span:first-child { color: var(--brand); }
+    .logo span:last-child { color: var(--white); }
+    .header-right { display: flex; align-items: center; gap: 18px; }
+    .greeting { font-size: 14px; color: var(--gray); }
+    .greeting b { color: #fff; }
+    .logout { font-size: 13px; color: var(--gray); background: none; border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; padding: 7px 14px; cursor: pointer; font-family: inherit; font-weight: 600; transition: background 0.2s; }
+    .logout:hover { background: rgba(255,255,255,0.06); }
+
+    main { max-width: 880px; margin: 0 auto; padding: 48px 24px 80px; }
+    .page-title { font-size: clamp(26px, 4vw, 34px); font-weight: 800; letter-spacing: -0.02em; margin-bottom: 8px; }
+    .page-title span { color: var(--brand); }
+    .page-sub { font-size: 15px; color: var(--gray); margin-bottom: 36px; }
+
+    .loading, .empty { text-align: center; padding: 60px 20px; color: var(--gray); }
+    .empty a { color: var(--accent); font-weight: 600; text-decoration: none; }
+
+    .project { background: var(--dark2); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 28px; margin-bottom: 24px; }
+    .project-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
+    .project-name { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
+    .project-ref { font-size: 12px; color: #666; font-family: monospace; }
+    .status-badge { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; padding: 5px 12px; border-radius: 100px; white-space: nowrap; }
+    .status-new { background: rgba(34,197,94,0.15); color: var(--accent); }
+    .status-reviewing { background: rgba(124,58,237,0.15); color: #a78bfa; }
+    .status-active { background: rgba(59,130,246,0.15); color: #60a5fa; }
+    .status-complete { background: rgba(34,197,94,0.2); color: var(--accent); }
+
+    /* TIMELINE */
+    .timeline { display: flex; margin: 8px 0 28px; }
+    .tl-step { flex: 1; text-align: center; position: relative; }
+    .tl-dot { width: 26px; height: 26px; border-radius: 50%; background: var(--dark3); border: 2px solid rgba(255,255,255,0.15); margin: 0 auto 8px; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #666; position: relative; z-index: 2; }
+    .tl-step.done .tl-dot { background: var(--brand); border-color: var(--brand); color: #fff; }
+    .tl-step.current .tl-dot { background: var(--accent); border-color: var(--accent); color: #000; box-shadow: 0 0 0 4px rgba(34,197,94,0.2); }
+    .tl-line { position: absolute; top: 13px; left: -50%; width: 100%; height: 2px; background: rgba(255,255,255,0.12); z-index: 1; }
+    .tl-step.done .tl-line, .tl-step.current .tl-line { background: var(--brand); }
+    .tl-step:first-child .tl-line { display: none; }
+    .tl-label { font-size: 12px; font-weight: 600; color: #888; }
+    .tl-step.done .tl-label, .tl-step.current .tl-label { color: #fff; }
+
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 8px; }
+    @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+    .panel { background: var(--dark); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 20px; }
+    .panel-title { font-size: 11px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 14px; }
+    .qrow { display: flex; justify-content: space-between; padding: 7px 0; font-size: 14px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .qrow:last-child { border-bottom: none; }
+    .qrow .k { color: var(--gray); }
+    .qrow .v { color: #fff; font-weight: 600; }
+    .qrow.total { font-size: 16px; font-weight: 800; padding-top: 12px; }
+    .qrow.total .v { color: var(--accent); }
+    .paid-pill { font-size: 11px; font-weight: 700; color: var(--accent); background: rgba(34,197,94,0.12); padding: 2px 8px; border-radius: 100px; }
+    .due-pill { font-size: 11px; font-weight: 700; color: #fbbf24; background: rgba(251,191,36,0.12); padding: 2px 8px; border-radius: 100px; }
+    .tag-list { display: flex; flex-wrap: wrap; gap: 6px; }
+    .tag { font-size: 12px; font-weight: 600; background: rgba(124,58,237,0.12); color: #a78bfa; border: 1px solid rgba(124,58,237,0.2); padding: 3px 10px; border-radius: 100px; }
+    .tag-green { background: rgba(34,197,94,0.1); color: var(--accent); border-color: rgba(34,197,94,0.2); }
+
+    .balance-bar { margin-top: 20px; padding: 18px 20px; background: rgba(124,58,237,0.1); border: 1px solid rgba(124,58,237,0.3); border-radius: 12px; display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .balance-info .bl { font-size: 12px; color: var(--gray); margin-bottom: 2px; }
+    .balance-info .bv { font-size: 20px; font-weight: 800; color: #fff; }
+    .btn-pay { background: var(--accent); color: #000; border: none; border-radius: 10px; padding: 12px 24px; font-size: 14px; font-weight: 800; cursor: pointer; transition: opacity 0.2s; }
+    .btn-pay:hover { opacity: 0.9; }
+    .btn-pay:disabled { opacity: 0.5; cursor: not-allowed; }
+    .pay-note { font-size: 13px; color: var(--accent); margin-top: 12px; line-height: 1.5; }
+    .banner { background: rgba(34,197,94,0.12); border: 1px solid rgba(34,197,94,0.3); color: var(--accent); border-radius: 12px; padding: 16px 20px; margin-bottom: 28px; font-size: 14px; font-weight: 600; }
+  </style>
+</head>
+<body>
+<header>
+  <a class="logo" href="/"><span>Arrowtrack</span><span> Forge</span></a>
+  <div class="header-right">
+    <span class="greeting" id="greeting"></span>
+    <button class="logout" onclick="logout()">Log out</button>
+  </div>
+</header>
+
+<main>
+  <h1 class="page-title">My <span>Projects</span></h1>
+  <p class="page-sub">Track your build, review your quote, and manage payments.</p>
+  <div id="banner"></div>
+  <div id="content"><div class="loading">Loading your projects…</div></div>
+</main>
+
+<script>
+  const money = n => '$' + (Number(n) || 0).toLocaleString();
+  const STAGES = [
+    { key: 'new', label: 'Submitted' },
+    { key: 'reviewing', label: 'Reviewing' },
+    { key: 'active', label: 'In Build' },
+    { key: 'complete', label: 'Delivered' }
+  ];
+
+  async function logout() {
+    await fetch('/api/logout', { method: 'POST' });
+    window.location.href = '/login';
+  }
+
+  function timeline(status) {
+    const idx = Math.max(0, STAGES.findIndex(s => s.key === status));
+    return `<div class="timeline">${STAGES.map((s, i) => {
+      const cls = i < idx ? 'done' : i === idx ? 'current' : '';
+      const mark = i < idx ? '✓' : (i + 1);
+      return `<div class="tl-step ${cls}"><div class="tl-line"></div><div class="tl-dot">${mark}</div><div class="tl-label">${s.label}</div></div>`;
+    }).join('')}</div>`;
+  }
+
+  function projectCard(p) {
+    const d = p.data || {};
+    const platforms = [d.platform_web && 'Web', d.platform_ios && 'iOS', d.platform_android && 'Android'].filter(Boolean);
+    const deliverables = [d.del_admin&&'Admin',d.del_payments&&'Payments',d.del_ai&&'AI',d.del_push&&'Push',d.del_email&&'Email',d.del_maps&&'Maps',d.del_analytics&&'Analytics',d.del_cms&&'CMS'].filter(Boolean);
+    const screens = d.screens_list || [];
+    const depositPaid = p.deposit_paid;
+    const balancePaid = p.balance_paid;
+    const showBalance = p.balance_due > 0 && !balancePaid && (p.status === 'active' || p.status === 'complete');
+
+    return `<div class="project">
+      <div class="project-head">
+        <div>
+          <div class="project-name">${d.project_name || p.project_name || 'Untitled Project'}</div>
+          <div class="project-ref">${p.ref_code} · started ${new Date(p.created_at).toLocaleDateString()}</div>
+        </div>
+        <span class="status-badge status-${p.status}">${STAGES.find(s=>s.key===p.status)?.label || p.status}</span>
+      </div>
+
+      ${timeline(p.status)}
+
+      <div class="grid">
+        <div class="panel">
+          <div class="panel-title">Your Quote</div>
+          <div class="qrow"><span class="k">Package</span><span class="v">${d.package || '—'}</span></div>
+          <div class="qrow"><span class="k">Project Total</span><span class="v">${money(p.quote_total)}</span></div>
+          <div class="qrow"><span class="k">Deposit (50%) ${depositPaid ? '<span class="paid-pill">Paid</span>' : ''}</span><span class="v">${money(p.quote_deposit)}</span></div>
+          <div class="qrow total"><span class="k">Balance Due ${balancePaid ? '<span class="paid-pill">Paid</span>' : (p.balance_due>0?'<span class="due-pill">Due</span>':'')}</span><span class="v">${money(p.balance_due)}</span></div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">What We're Building</div>
+          <div class="qrow"><span class="k">Platforms</span><span class="v">${platforms.join(', ') || '—'}</span></div>
+          <div style="margin-top:12px;"><div style="font-size:11px;color:#888;margin-bottom:8px;">COMPONENTS</div>
+            <div class="tag-list">${deliverables.map(x=>`<span class="tag">${x}</span>`).join('') || '<span style="color:#555;font-size:13px;">—</span>'}</div></div>
+          <div style="margin-top:14px;"><div style="font-size:11px;color:#888;margin-bottom:8px;">SCREENS (${screens.length})</div>
+            <div class="tag-list">${screens.slice(0,8).map(s=>`<span class="tag tag-green">${s}</span>`).join('') || '<span style="color:#555;font-size:13px;">—</span>'}${screens.length>8?`<span class="tag">+${screens.length-8} more</span>`:''}</div></div>
+        </div>
+      </div>
+
+      ${showBalance ? `<div class="balance-bar">
+        <div class="balance-info"><div class="bl">Final balance due on delivery</div><div class="bv">${money(p.balance_due)}</div></div>
+        <button class="btn-pay" onclick="payBalance('${p.ref_code}', this)">Pay Balance →</button>
+      </div>` : ''}
+      <div class="pay-note" id="payNote-${p.ref_code}"></div>
+    </div>`;
+  }
+
+  async function payBalance(ref, btn) {
+    btn.disabled = true; btn.textContent = 'Starting checkout…';
+    try {
+      const res = await fetch('/api/pay-balance', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ref_code: ref }) });
+      const data = await res.json();
+      if (data.url) { window.location.href = data.url; }
+      else if (data.demo) { document.getElementById('payNote-' + ref).textContent = '💳 ' + data.message; btn.disabled = false; btn.textContent = 'Pay Balance →'; }
+      else { btn.disabled = false; btn.textContent = 'Pay Balance →'; alert('Could not start checkout.'); }
+    } catch (err) { btn.disabled = false; btn.textContent = 'Pay Balance →'; alert('Network error.'); }
+  }
+
+  async function load() {
+    // Auth check
+    const meRes = await fetch('/api/me');
+    if (!meRes.ok) { window.location.href = '/login'; return; }
+    const me = await meRes.json();
+    document.getElementById('greeting').innerHTML = me.name ? `Hi, <b>${me.name.split(' ')[0]}</b>` : me.email;
+
+    if (new URLSearchParams(location.search).get('balance_paid') === '1') {
+      document.getElementById('banner').innerHTML = '<div class="banner">🎉 Payment received — thank you! Your balance is now settled.</div>';
+    }
+
+    const res = await fetch('/api/my-projects');
+    const projects = await res.json();
+    const content = document.getElementById('content');
+    if (!projects.length) {
+      content.innerHTML = `<div class="empty">No projects yet. <a href="/build">Start your first project →</a></div>`;
+      return;
+    }
+    content.innerHTML = projects.map(projectCard).join('');
+  }
+
+  load();
+</script>
+</body>
+</html>

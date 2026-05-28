@@ -681,6 +681,10 @@
       <input type="email" id="client_email" placeholder="jane@company.com" autocomplete="email"/>
     </div>
     <div class="field-group">
+      <label>Create a Password <span style="color:#555;font-weight:500;text-transform:none;">— to log in and track your project</span></label>
+      <input type="password" id="account_password" placeholder="Choose a password" autocomplete="new-password"/>
+    </div>
+    <div class="field-group">
       <label>Phone Number (optional)</label>
       <input type="tel" id="phone" placeholder="+1 (555) 000-0000" autocomplete="tel"/>
     </div>
@@ -721,6 +725,7 @@
     <p class="success-sub">We've received your project brief and sent a copy to your email. Expect to hear from us within <strong>24 hours</strong>.</p>
     <div class="success-ref" id="successRef">SOW-XXXXXX</div>
     <p class="success-sub" style="font-size:15px;">Your reference number is above — keep it handy for any follow-up questions.</p>
+    <a href="/project" class="btn-next" style="display:inline-block;text-decoration:none;">View My Project →</a>
   </div>
 
 </main>
@@ -1032,9 +1037,10 @@
     const btn = document.getElementById('btnSubmit');
     btn.disabled = true; btn.textContent = 'Submitting...';
     try {
+      const payload = { ...formData, password: (document.getElementById('account_password').value || '') };
       const res = await fetch('/api/submit', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(payload)
       });
       const data = await res.json();
       if (data.success) showSuccess(data.ref);
@@ -1052,8 +1058,9 @@
     const btn = document.getElementById('btnPay');
     btn.disabled = true; btn.textContent = 'Starting checkout...';
     try {
-      // Save brief
-      await fetch('/api/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formData) });
+      // Save brief (and create the account if a password was provided)
+      const payload = { ...formData, password: (document.getElementById('account_password').value || '') };
+      await fetch('/api/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       // Create checkout session
       const res = await fetch('/api/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formData) });
       const data = await res.json();
