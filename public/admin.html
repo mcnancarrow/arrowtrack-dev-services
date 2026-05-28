@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Arrowtrack Forge — Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --brand: #7C3AED; --accent: #22C55E; --dark: #0D0D0D; --dark2: #1A1A1A; --dark3: #252525; --white: #fff; --gray: #888; }
+    body { font-family: 'Inter', sans-serif; background: var(--dark); color: var(--white); min-height: 100vh; }
+
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 32px; background: var(--dark2);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .logo { font-size: 17px; font-weight: 800; }
+    .logo span:first-child { color: var(--brand); }
+    .admin-badge { font-size: 11px; font-weight: 700; color: var(--accent); background: rgba(34,197,94,0.12); border: 1px solid rgba(34,197,94,0.25); padding: 4px 12px; border-radius: 100px; text-transform: uppercase; letter-spacing: 0.06em; }
+
+    .layout { display: flex; height: calc(100vh - 61px); }
+
+    /* SIDEBAR */
+    .sidebar { width: 360px; min-width: 360px; border-right: 1px solid rgba(255,255,255,0.06); overflow-y: auto; }
+    .sidebar-header { padding: 20px 24px; border-bottom: 1px solid rgba(255,255,255,0.06); display: flex; justify-content: space-between; align-items: flex-end; }
+    .sidebar-title { font-size: 13px; font-weight: 700; color: var(--gray); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+    .submission-count { font-size: 28px; font-weight: 800; color: var(--white); }
+    .pipeline-total { text-align: right; }
+    .pipeline-label { font-size: 11px; font-weight: 700; color: var(--gray); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+    .pipeline-value { font-size: 22px; font-weight: 800; color: var(--accent); }
+
+    .submission-item {
+      padding: 16px 24px; border-bottom: 1px solid rgba(255,255,255,0.05);
+      cursor: pointer; transition: background 0.15s;
+    }
+    .submission-item:hover { background: rgba(255,255,255,0.03); }
+    .submission-item.active { background: rgba(124,58,237,0.1); border-left: 3px solid var(--brand); }
+    .sub-name { font-size: 14px; font-weight: 700; margin-bottom: 2px; display: flex; justify-content: space-between; gap: 8px; }
+    .sub-quote { color: var(--accent); font-weight: 800; font-size: 13px; white-space: nowrap; }
+    .sub-company { font-size: 12px; color: var(--gray); margin-bottom: 6px; }
+    .sub-meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .sub-ref { font-size: 11px; color: #555; font-family: monospace; }
+    .sub-date { font-size: 11px; color: #555; }
+    .status-badge {
+      font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+      padding: 2px 8px; border-radius: 100px;
+    }
+    .status-new { background: rgba(34,197,94,0.15); color: var(--accent); }
+    .status-reviewing { background: rgba(124,58,237,0.15); color: #a78bfa; }
+    .status-active { background: rgba(59,130,246,0.15); color: #60a5fa; }
+    .status-complete { background: rgba(255,255,255,0.08); color: #888; }
+
+    /* DETAIL */
+    .detail { flex: 1; overflow-y: auto; padding: 32px 40px; }
+    .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--gray); text-align: center; }
+    .empty-state div:first-child { font-size: 48px; margin-bottom: 16px; }
+
+    .detail-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 32px; flex-wrap: wrap; gap: 16px; }
+    .detail-title { font-size: 26px; font-weight: 800; margin-bottom: 4px; }
+    .detail-sub { font-size: 14px; color: var(--gray); }
+    .detail-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+    .action-btn {
+      padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600;
+      cursor: pointer; border: none; transition: opacity 0.2s;
+    }
+    .action-btn:hover { opacity: 0.8; }
+    .btn-reviewing { background: rgba(124,58,237,0.2); color: #a78bfa; border: 1px solid rgba(124,58,237,0.3); }
+    .btn-active { background: rgba(59,130,246,0.2); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3); }
+    .btn-complete { background: rgba(255,255,255,0.08); color: #aaa; border: 1px solid rgba(255,255,255,0.12); }
+
+    /* QUOTE BANNER */
+    .quote-banner { display: flex; gap: 32px; align-items: center; background: linear-gradient(160deg, rgba(124,58,237,0.12), rgba(34,197,94,0.06)); border: 1px solid rgba(124,58,237,0.35); border-radius: 12px; padding: 20px 28px; margin-bottom: 28px; }
+    .quote-banner .qb-block { display: flex; flex-direction: column; }
+    .quote-banner .qb-label { font-size: 11px; font-weight: 700; color: var(--gray); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+    .quote-banner .qb-total { font-size: 26px; font-weight: 800; color: var(--accent); }
+    .quote-banner .qb-deposit { font-size: 22px; font-weight: 800; color: var(--brand); }
+
+    .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 28px; }
+    @media (max-width: 700px) { .detail-grid { grid-template-columns: 1fr; } }
+
+    .detail-card { background: var(--dark2); border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; padding: 20px; }
+    .detail-card-title { font-size: 11px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 14px; }
+    .detail-row { display: flex; gap: 10px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-key { font-size: 12px; color: var(--gray); min-width: 110px; }
+    .detail-val { font-size: 13px; color: var(--white); font-weight: 500; word-break: break-word; }
+
+    .detail-full { background: var(--dark2); border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+    .detail-full-title { font-size: 11px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 12px; }
+    .detail-full p { font-size: 14px; color: #ccc; line-height: 1.7; white-space: pre-wrap; }
+
+    .tag-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+    .tag { font-size: 12px; font-weight: 600; background: rgba(124,58,237,0.12); color: #a78bfa; border: 1px solid rgba(124,58,237,0.2); padding: 3px 10px; border-radius: 100px; }
+    .tag-green { background: rgba(34,197,94,0.1); color: var(--accent); border-color: rgba(34,197,94,0.2); }
+
+    .loading { text-align: center; padding: 40px; color: var(--gray); }
+  </style>
+</head>
+<body>
+<header>
+  <div class="logo"><span>Arrowtrack</span><span> Forge</span></div>
+  <div class="admin-badge">Forge Admin</div>
+</header>
+
+<div class="layout">
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <div>
+        <div class="sidebar-title">Submissions</div>
+        <div class="submission-count" id="subCount">—</div>
+      </div>
+      <div class="pipeline-total">
+        <div class="pipeline-label">Pipeline</div>
+        <div class="pipeline-value" id="pipelineValue">$0</div>
+      </div>
+    </div>
+    <div id="subList"><div class="loading">Loading...</div></div>
+  </div>
+  <div class="detail" id="detail">
+    <div class="empty-state">
+      <div>📋</div>
+      <div style="font-size:16px;font-weight:600;margin-bottom:8px;">Select a submission</div>
+      <div style="font-size:14px;">Click any item on the left to view details</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let submissions = [];
+  let activeId = null;
+  const money = n => '$' + (Number(n) || 0).toLocaleString();
+
+  async function loadSubmissions() {
+    const res = await fetch('/admin/api/submissions');
+    submissions = await res.json();
+    document.getElementById('subCount').textContent = submissions.length;
+    const pipeline = submissions.reduce((sum, s) => sum + (Number(s.quote_total) || 0), 0);
+    document.getElementById('pipelineValue').textContent = money(pipeline);
+    const list = document.getElementById('subList');
+    if (!submissions.length) {
+      list.innerHTML = '<div class="loading">No submissions yet.</div>';
+      return;
+    }
+    list.innerHTML = submissions.map(s => `
+      <div class="submission-item ${s.id === activeId ? 'active' : ''}" onclick="loadDetail(${s.id})">
+        <div class="sub-name"><span>${s.client_name || 'Unknown'}</span>${s.quote_total ? `<span class="sub-quote">${money(s.quote_total)}</span>` : ''}</div>
+        <div class="sub-company">${s.project_name || '—'} · ${s.company_name || '—'}</div>
+        <div class="sub-meta">
+          <span class="status-badge status-${s.status}">${s.status}</span>
+          <span class="sub-ref">${s.ref_code}</span>
+          <span class="sub-date">${new Date(s.created_at).toLocaleDateString()}</span>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async function loadDetail(id) {
+    activeId = id;
+    document.querySelectorAll('.submission-item').forEach(el => el.classList.remove('active'));
+    document.querySelector(`.submission-item[onclick="loadDetail(${id})"]`)?.classList.add('active');
+
+    const res = await fetch(`/admin/api/submissions/${id}`);
+    const s = await res.json();
+    const d = s.data || {};
+
+    const platforms = [d.platform_web && 'Web', d.platform_ios && 'iOS', d.platform_android && 'Android'].filter(Boolean);
+    const deliverables = [d.del_admin&&'Admin Panel',d.del_payments&&'Payments',d.del_ai&&'AI',d.del_push&&'Push Notifications',d.del_email&&'Email',d.del_maps&&'Maps',d.del_analytics&&'Analytics',d.del_cms&&'CMS'].filter(Boolean);
+    const features = [d.feat_auth&&'Email Auth',d.feat_oauth&&'Google/Apple OAuth',d.feat_roles&&'User Roles',d.feat_magic&&'Magic Link',d.feat_stripe&&'Stripe',d.feat_subscriptions&&'Subscriptions',d.feat_freemium&&'Freemium',d.feat_iap&&'IAP',d.feat_ai_content&&'AI Content',d.feat_ai_chat&&'AI Chat',d.feat_ai_analysis&&'AI Analysis',d.feat_automation&&'Automation'].filter(Boolean);
+    const screens = d.screens_list || [];
+    const total = d.quote_total ?? s.quote_total;
+    const deposit = d.quote_deposit ?? (total ? Math.round(total * 0.5) : 0);
+
+    document.getElementById('detail').innerHTML = `
+      <div class="detail-header">
+        <div>
+          <div class="detail-title">${d.project_name || 'Untitled Project'}</div>
+          <div class="detail-sub">${s.client_name} · ${s.client_email} · <span style="color:#a78bfa;font-family:monospace;">${s.ref_code}</span></div>
+        </div>
+        <div class="detail-actions">
+          <button class="action-btn btn-reviewing" onclick="updateStatus(${id},'reviewing')">Mark Reviewing</button>
+          <button class="action-btn btn-active" onclick="updateStatus(${id},'active')">Mark Active</button>
+          <button class="action-btn btn-complete" onclick="updateStatus(${id},'complete')">Complete</button>
+        </div>
+      </div>
+
+      ${total ? `<div class="quote-banner">
+        <div class="qb-block"><span class="qb-label">Estimated Quote</span><span class="qb-total">${money(total)}</span></div>
+        <div class="qb-block"><span class="qb-label">50% Deposit</span><span class="qb-deposit">${money(deposit)}</span></div>
+        <div class="qb-block"><span class="qb-label">Package</span><span style="font-size:15px;font-weight:700;color:#fff;">${d.package || '—'}</span></div>
+      </div>` : ''}
+
+      <div class="detail-grid">
+        <div class="detail-card">
+          <div class="detail-card-title">Client</div>
+          <div class="detail-row"><div class="detail-key">Name</div><div class="detail-val">${s.client_name || '—'}</div></div>
+          <div class="detail-row"><div class="detail-key">Email</div><div class="detail-val"><a href="mailto:${s.client_email}" style="color:#22C55E;">${s.client_email || '—'}</a></div></div>
+          <div class="detail-row"><div class="detail-key">Phone</div><div class="detail-val">${d.phone || '—'}</div></div>
+          <div class="detail-row"><div class="detail-key">Company</div><div class="detail-val">${s.company_name || '—'}</div></div>
+          <div class="detail-row"><div class="detail-key">Industry</div><div class="detail-val">${d.business_type || '—'}</div></div>
+          <div class="detail-row"><div class="detail-key">Referral</div><div class="detail-val">${d.referral || '—'}</div></div>
+        </div>
+        <div class="detail-card">
+          <div class="detail-card-title">Project</div>
+          <div class="detail-row"><div class="detail-key">Package</div><div class="detail-val" style="color:#7C3AED;font-weight:700;">${d.package || '—'}</div></div>
+          <div class="detail-row"><div class="detail-key">Budget</div><div class="detail-val">${d.budget || '—'}</div></div>
+          <div class="detail-row"><div class="detail-key">Urgency</div><div class="detail-val">${d.urgency || '—'}</div></div>
+          <div class="detail-row"><div class="detail-key">Start Date</div><div class="detail-val">${d.start_date || '—'}</div></div>
+          <div class="detail-row"><div class="detail-key">Launch Date</div><div class="detail-val">${d.target_launch || '—'}</div></div>
+          <div class="detail-row"><div class="detail-key">Submitted</div><div class="detail-val">${new Date(s.created_at).toLocaleString()}</div></div>
+        </div>
+      </div>
+
+      <div class="detail-full">
+        <div class="detail-full-title">Platforms & Deliverables</div>
+        <div class="tag-list">
+          ${platforms.map(p=>`<span class="tag tag-green">${p}</span>`).join('')}
+          ${deliverables.map(x=>`<span class="tag">${x}</span>`).join('')}
+          ${(!platforms.length && !deliverables.length) ? '<span style="color:#555;font-size:13px;">None selected</span>' : ''}
+        </div>
+      </div>
+
+      <div class="detail-full">
+        <div class="detail-full-title">Features (${features.length})</div>
+        <div class="tag-list">
+          ${features.map(f=>`<span class="tag">${f}</span>`).join('')}
+          ${!features.length ? '<span style="color:#555;font-size:13px;">None selected</span>' : ''}
+        </div>
+      </div>
+
+      <div class="detail-full">
+        <div class="detail-full-title">Screens (${screens.length})</div>
+        <div class="tag-list">
+          ${screens.map(sc=>`<span class="tag tag-green">${sc}</span>`).join('')}
+          ${!screens.length ? '<span style="color:#555;font-size:13px;">None listed</span>' : ''}
+        </div>
+      </div>
+
+      <div class="detail-grid">
+        <div class="detail-card">
+          <div class="detail-card-title">Design</div>
+          <div class="detail-row"><div class="detail-key">Color Mode</div><div class="detail-val">${d.color_mode || '—'}</div></div>
+          <div class="detail-row"><div class="detail-key">Primary Color</div><div class="detail-val"><span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:${d.color_primary||'#fff'};margin-right:6px;vertical-align:middle;"></span>${d.color_primary || '—'}</div></div>
+          <div class="detail-row"><div class="detail-key">Accent Color</div><div class="detail-val"><span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:${d.color_secondary||'#fff'};margin-right:6px;vertical-align:middle;"></span>${d.color_secondary || '—'}</div></div>
+          <div class="detail-row"><div class="detail-key">Font Style</div><div class="detail-val">${d.font_style || '—'}</div></div>
+          <div class="detail-row"><div class="detail-key">Brand Assets</div><div class="detail-val">${d.brand_assets || '—'}</div></div>
+          <div class="detail-row"><div class="detail-key">Reference</div><div class="detail-val">${d.design_reference || '—'}</div></div>
+        </div>
+        <div class="detail-card">
+          <div class="detail-card-title">Business Goal</div>
+          <p style="font-size:13px;color:#ccc;line-height:1.7;">${d.business_goal || '—'}</p>
+          ${d.target_users ? `<div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.06);"><div style="font-size:11px;color:#888;margin-bottom:6px;">TARGET USERS</div><p style="font-size:13px;color:#ccc;">${d.target_users}</p></div>` : ''}
+        </div>
+      </div>
+
+      ${d.custom_features ? `<div class="detail-full"><div class="detail-full-title">Custom Features</div><p>${d.custom_features}</p></div>` : ''}
+      ${d.design_notes ? `<div class="detail-full"><div class="detail-full-title">Design Notes</div><p>${d.design_notes}</p></div>` : ''}
+      ${d.additional_notes ? `<div class="detail-full"><div class="detail-full-title">Timeline Notes</div><p>${d.additional_notes}</p></div>` : ''}
+      ${d.final_notes ? `<div class="detail-full"><div class="detail-full-title">Additional Notes</div><p>${d.final_notes}</p></div>` : ''}
+    `;
+  }
+
+  async function updateStatus(id, status) {
+    await fetch(`/admin/api/submissions/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    });
+    loadSubmissions();
+    loadDetail(id);
+  }
+
+  loadSubmissions();
+</script>
+</body>
+</html>

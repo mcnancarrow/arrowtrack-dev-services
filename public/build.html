@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Arrowtrack Forge — Build Your App</title>
+  <meta name="description" content="Tell us about your app. Watch your quote build in real time. We'll deliver in 30 days."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --brand: #7C3AED; --brand-dark: #6D28D9;
+      --accent: #22C55E; --dark: #0D0D0D;
+      --dark2: #1A1A1A; --dark3: #252525;
+      --gray: #888; --white: #FFFFFF;
+    }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'Inter', sans-serif; background: var(--dark); color: var(--white); min-height: 100vh; }
+
+    /* HEADER */
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 20px 40px;
+      background: rgba(13,13,13,0.95);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      position: sticky; top: 0; z-index: 100;
+    }
+    .logo { font-size: 18px; font-weight: 800; text-decoration: none; }
+    .logo span:first-child { color: var(--brand); }
+    .logo span:last-child { color: var(--white); }
+    .header-tag {
+      font-size: 12px; font-weight: 600; color: var(--accent);
+      background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.25);
+      padding: 5px 12px; border-radius: 100px; letter-spacing: 0.05em; text-transform: uppercase;
+    }
+
+    /* PROGRESS */
+    .progress-wrap { background: var(--dark2); border-bottom: 1px solid rgba(255,255,255,0.06); padding: 20px 40px; }
+    .progress-inner { max-width: 760px; margin: 0 auto; }
+    .progress-labels { display: flex; justify-content: space-between; margin-bottom: 10px; }
+    .progress-label { font-size: 11px; color: #555; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; cursor: pointer; transition: color 0.2s; }
+    .progress-label.active { color: var(--accent); }
+    .progress-label.done { color: var(--brand); }
+    .progress-bar-track { height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
+    .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--brand), var(--accent)); border-radius: 2px; transition: width 0.4s ease; }
+
+    /* MAIN */
+    main { max-width: 760px; margin: 0 auto; padding: 48px 24px 180px; }
+
+    /* STEP */
+    .step { display: none; }
+    .step.active { display: block; animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+    .step-header { margin-bottom: 40px; }
+    .step-number { font-size: 12px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; }
+    .step-title { font-size: clamp(24px, 4vw, 36px); font-weight: 800; line-height: 1.15; letter-spacing: -0.02em; margin-bottom: 10px; }
+    .step-title span { color: var(--brand); }
+    .step-sub { font-size: 16px; color: var(--gray); line-height: 1.6; }
+
+    /* FORM ELEMENTS */
+    .field-group { margin-bottom: 24px; }
+    .field-group label { display: block; font-size: 13px; font-weight: 600; color: #aaa; margin-bottom: 8px; }
+    .field-group label span { color: var(--accent); }
+    .field-group input, .field-group select, .field-group textarea {
+      width: 100%; background: var(--dark2); border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px; padding: 14px 16px; color: var(--white);
+      font-size: 15px; font-family: 'Inter', sans-serif; outline: none; transition: border-color 0.2s;
+    }
+    .field-group input:focus, .field-group select:focus, .field-group textarea:focus { border-color: var(--brand); }
+    .field-group textarea { resize: vertical; min-height: 110px; }
+    .field-group select option { background: #1a1a1a; }
+    .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 560px) { .field-row { grid-template-columns: 1fr; } }
+
+    /* CHECKBOXES */
+    .check-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+    .check-item {
+      display: flex; align-items: flex-start; gap: 12px;
+      background: var(--dark2); border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 10px; padding: 16px; cursor: pointer; transition: border-color 0.2s;
+    }
+    .check-item:hover { border-color: rgba(124,58,237,0.4); }
+    .check-item input[type="checkbox"], .check-item input[type="radio"] { display: none; }
+    .check-box {
+      width: 20px; height: 20px; min-width: 20px; border-radius: 5px;
+      border: 2px solid rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s;
+    }
+    .check-item.checked { border-color: var(--brand); background: rgba(124,58,237,0.08); }
+    .check-item.checked .check-box { background: var(--brand); border-color: var(--brand); }
+    .check-item.checked .check-box::after { content: "✓"; color: #fff; font-size: 12px; font-weight: 700; }
+    .check-label { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+    .check-desc { font-size: 12px; color: var(--gray); }
+    .check-price { font-size: 12px; font-weight: 700; color: var(--accent); margin-top: 3px; }
+
+    /* RADIO CARDS */
+    .radio-grid { display: grid; gap: 12px; }
+    .radio-card {
+      display: flex; align-items: center; gap: 16px;
+      background: var(--dark2); border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 10px; padding: 20px; cursor: pointer; transition: border-color 0.2s;
+    }
+    .radio-card:hover { border-color: rgba(124,58,237,0.4); }
+    .radio-card.selected { border-color: var(--brand); background: rgba(124,58,237,0.08); }
+    .radio-dot {
+      width: 20px; height: 20px; min-width: 20px; border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.2); transition: all 0.15s;
+    }
+    .radio-card.selected .radio-dot { border-color: var(--brand); background: var(--brand); box-shadow: 0 0 0 3px rgba(124,58,237,0.2); }
+    .radio-card-content { flex: 1; }
+    .radio-card-title { font-size: 15px; font-weight: 700; margin-bottom: 2px; }
+    .radio-card-desc { font-size: 13px; color: var(--gray); }
+    .radio-card-price { font-size: 18px; font-weight: 800; color: var(--accent); white-space: nowrap; }
+
+    /* COLOR PICKER */
+    .color-row { display: flex; align-items: center; gap: 12px; }
+    .color-row input[type="color"] {
+      width: 52px; height: 52px; border: none; border-radius: 10px;
+      cursor: pointer; padding: 4px; background: var(--dark2);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .color-row input[type="text"] { flex: 1; }
+
+    /* SCREENS BUILDER */
+    .screens-list { margin-bottom: 12px; }
+    .screen-item {
+      display: flex; align-items: center; gap: 10px;
+      background: var(--dark2); border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 10px; padding: 12px 16px; margin-bottom: 8px;
+    }
+    .screen-item input { flex: 1; background: transparent; border: none; color: var(--white); font-size: 14px; outline: none; }
+    .screen-remove { background: none; border: none; color: #555; cursor: pointer; font-size: 18px; padding: 0 4px; transition: color 0.2s; }
+    .screen-remove:hover { color: #ef4444; }
+    .add-screen-btn {
+      display: flex; align-items: center; gap: 8px;
+      background: rgba(124,58,237,0.1); border: 1px dashed rgba(124,58,237,0.3);
+      border-radius: 10px; padding: 12px 16px; cursor: pointer;
+      color: var(--brand); font-size: 14px; font-weight: 600;
+      width: 100%; transition: background 0.2s;
+    }
+    .add-screen-btn:hover { background: rgba(124,58,237,0.18); }
+
+    /* REVIEW */
+    .review-section { margin-bottom: 24px; }
+    .review-section-title { font-size: 12px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.07); }
+    .review-row { display: flex; gap: 12px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+    .review-key { font-size: 13px; color: var(--gray); min-width: 140px; }
+    .review-val { font-size: 13px; color: var(--white); font-weight: 500; flex: 1; }
+
+    /* QUOTE CARD (review) */
+    .quote-card {
+      background: linear-gradient(160deg, rgba(124,58,237,0.12), rgba(34,197,94,0.06));
+      border: 1px solid rgba(124,58,237,0.35); border-radius: 16px; padding: 28px; margin-bottom: 28px;
+    }
+    .quote-card-title { font-size: 12px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 18px; }
+    .quote-line { display: flex; justify-content: space-between; padding: 9px 0; font-size: 14px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .quote-line .ql-label { color: #ccc; }
+    .quote-line .ql-price { color: #fff; font-weight: 600; }
+    .quote-total { display: flex; justify-content: space-between; padding: 16px 0 6px; font-size: 20px; font-weight: 800; }
+    .quote-total .qt-price { color: var(--accent); }
+    .quote-deposit { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding: 14px 18px; background: rgba(124,58,237,0.15); border-radius: 10px; }
+    .quote-deposit .qd-label { font-size: 14px; font-weight: 600; color: #ddd; }
+    .quote-deposit .qd-price { font-size: 18px; font-weight: 800; color: var(--brand); }
+    .quote-custom { text-align: center; padding: 8px 0; color: #ccc; font-size: 15px; line-height: 1.6; }
+    .quote-note { font-size: 12px; color: var(--gray); line-height: 1.6; margin-top: 16px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.06); }
+
+    /* PAYMENT CHOICE */
+    .pay-options { display: grid; gap: 12px; margin-top: 8px; }
+    .demo-msg { background: var(--dark2); border: 1px solid rgba(34,197,94,0.3); border-radius: 10px; padding: 16px; color: var(--accent); font-size: 14px; margin-top: 12px; line-height: 1.6; }
+
+    /* LIVE QUOTE BAR */
+    .quote-bar {
+      position: fixed; bottom: 84px; left: 0; right: 0; z-index: 49;
+      display: flex; justify-content: center; pointer-events: none;
+    }
+    .quote-pill {
+      pointer-events: auto;
+      display: inline-flex; align-items: center; gap: 14px;
+      background: rgba(26,26,26,0.97); border: 1px solid rgba(124,58,237,0.4);
+      border-radius: 100px; padding: 10px 22px; backdrop-filter: blur(12px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4); font-size: 14px;
+      transition: transform 0.25s ease, opacity 0.25s ease;
+    }
+    .quote-pill .qp-label { color: var(--gray); font-weight: 500; }
+    .quote-pill .qp-total { color: var(--accent); font-weight: 800; font-size: 17px; }
+    .quote-pill .qp-bump { display: inline-block; transition: transform 0.2s; }
+    .quote-pill.bump .qp-bump { transform: scale(1.18); }
+
+    /* NAVIGATION */
+    .step-nav {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: rgba(13,13,13,0.97); border-top: 1px solid rgba(255,255,255,0.07);
+      padding: 20px 40px; display: flex; justify-content: space-between; align-items: center;
+      backdrop-filter: blur(12px); z-index: 50;
+    }
+    .nav-left { font-size: 13px; color: var(--gray); }
+    .nav-right { display: flex; gap: 12px; }
+    .btn-back {
+      background: rgba(255,255,255,0.06); color: var(--white);
+      border: 1px solid rgba(255,255,255,0.1); border-radius: 10px;
+      padding: 12px 24px; font-size: 15px; font-weight: 600;
+      cursor: pointer; transition: background 0.2s;
+    }
+    .btn-back:hover { background: rgba(255,255,255,0.1); }
+    .btn-next {
+      background: var(--brand); color: var(--white);
+      border: none; border-radius: 10px;
+      padding: 12px 28px; font-size: 15px; font-weight: 700;
+      cursor: pointer; transition: background 0.2s;
+    }
+    .btn-next:hover { background: var(--brand-dark); }
+    .btn-submit {
+      background: rgba(255,255,255,0.06); color: var(--white);
+      border: 1px solid rgba(255,255,255,0.12); border-radius: 10px;
+      padding: 12px 24px; font-size: 15px; font-weight: 600;
+      cursor: pointer; transition: background 0.2s;
+    }
+    .btn-submit:hover { background: rgba(255,255,255,0.1); }
+    .btn-pay {
+      background: var(--accent); color: #000;
+      border: none; border-radius: 10px;
+      padding: 12px 28px; font-size: 15px; font-weight: 800;
+      cursor: pointer; transition: opacity 0.2s;
+    }
+    .btn-pay:hover { opacity: 0.9; }
+    .btn-pay:disabled, .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* SUCCESS */
+    .success-wrap {
+      display: none; text-align: center; padding: 80px 24px;
+      max-width: 560px; margin: 0 auto;
+    }
+    .success-wrap.show { display: block; animation: fadeIn 0.4s ease; }
+    .success-icon { font-size: 64px; margin-bottom: 24px; }
+    .success-title { font-size: 36px; font-weight: 800; margin-bottom: 12px; }
+    .success-sub { font-size: 18px; color: var(--gray); margin-bottom: 32px; line-height: 1.6; }
+    .success-ref {
+      background: var(--dark2); border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px; padding: 20px 28px; display: inline-block;
+      font-size: 20px; font-weight: 800; color: var(--accent); margin-bottom: 32px;
+      letter-spacing: 0.05em;
+    }
+    .autosave { font-size: 12px; color: #555; }
+    .autosave.saved { color: var(--accent); }
+
+    /* DIVIDER */
+    .divider { height: 1px; background: rgba(255,255,255,0.06); margin: 32px 0; }
+  </style>
+</head>
+<body>
+
+<header>
+  <a class="logo" href="/"><span>Arrowtrack</span><span> Forge</span></a>
+  <div class="header-tag">Build Your App</div>
+</header>
+
+<div class="progress-wrap">
+  <div class="progress-inner">
+    <div class="progress-labels">
+      <span class="progress-label" data-step="1">Overview</span>
+      <span class="progress-label" data-step="2">Platforms</span>
+      <span class="progress-label" data-step="3">Features</span>
+      <span class="progress-label" data-step="4">Screens</span>
+      <span class="progress-label" data-step="5">Design</span>
+      <span class="progress-label" data-step="6">Package</span>
+      <span class="progress-label" data-step="7">Contact</span>
+      <span class="progress-label" data-step="8">Review</span>
+    </div>
+    <div class="progress-bar-track">
+      <div class="progress-bar-fill" id="progressFill" style="width:12.5%"></div>
+    </div>
+  </div>
+</div>
+
+<main id="formWrap">
+
+  <!-- STEP 1: PROJECT OVERVIEW -->
+  <div class="step active" id="step-1">
+    <div class="step-header">
+      <div class="step-number">Step 1 of 8</div>
+      <h1 class="step-title">Tell us about your <span>project.</span></h1>
+      <p class="step-sub">Start with the basics — what are we building and why?</p>
+    </div>
+    <div class="field-row">
+      <div class="field-group">
+        <label>Company / Business Name <span>*</span></label>
+        <input type="text" id="company_name" placeholder="Acme Restaurant Group" autocomplete="organization"/>
+      </div>
+      <div class="field-group">
+        <label>Project Name <span>*</span></label>
+        <input type="text" id="project_name" placeholder="e.g. AcmeOrder App"/>
+      </div>
+    </div>
+    <div class="field-group">
+      <label>Business Type <span>*</span></label>
+      <select id="business_type">
+        <option value="">Select your industry...</option>
+        <option>Restaurant / Food Service</option>
+        <option>Retail / E-commerce</option>
+        <option>Healthcare / Wellness</option>
+        <option>Real Estate</option>
+        <option>Fitness / Sports</option>
+        <option>Education / EdTech</option>
+        <option>Finance / Fintech</option>
+        <option>Logistics / Delivery</option>
+        <option>Hospitality / Travel</option>
+        <option>Professional Services</option>
+        <option>SaaS / Technology</option>
+        <option>Non-Profit</option>
+        <option>Other</option>
+      </select>
+    </div>
+    <div class="field-group">
+      <label>What problem does this app solve? <span>*</span></label>
+      <textarea id="business_goal" placeholder="e.g. We need a mobile ordering system so customers can order ahead and skip the line at our restaurant..."></textarea>
+    </div>
+    <div class="field-group">
+      <label>Who are your target users?</label>
+      <input type="text" id="target_users" placeholder="e.g. Restaurant customers aged 25–45 who order online frequently"/>
+    </div>
+  </div>
+
+  <!-- STEP 2: PLATFORMS & DELIVERABLES -->
+  <div class="step" id="step-2">
+    <div class="step-header">
+      <div class="step-number">Step 2 of 8</div>
+      <h1 class="step-title">What do you need <span>built?</span></h1>
+      <p class="step-sub">Select every platform and component your project requires. Your quote updates as you go.</p>
+    </div>
+    <div class="field-group">
+      <label>Target Platforms <span>*</span></label>
+      <div class="check-grid">
+        <label class="check-item" onclick="toggleCheck(this,'platform_web')">
+          <input type="checkbox" id="platform_web"/>
+          <div class="check-box"></div>
+          <div><div class="check-label">🌐 Web App</div><div class="check-desc">Browser-based dashboard or site</div></div>
+        </label>
+        <label class="check-item" onclick="toggleCheck(this,'platform_ios')">
+          <input type="checkbox" id="platform_ios"/>
+          <div class="check-box"></div>
+          <div><div class="check-label">🍎 iOS App</div><div class="check-desc">iPhone & iPad on App Store</div></div>
+        </label>
+        <label class="check-item" onclick="toggleCheck(this,'platform_android')">
+          <input type="checkbox" id="platform_android"/>
+          <div class="check-box"></div>
+          <div><div class="check-label">🤖 Android App</div><div class="check-desc">Google Play Store</div></div>
+        </label>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="field-group">
+      <label>Components to Include <span style="color:#555;font-weight:500;text-transform:none;">— priced add-ons</span></label>
+      <div class="check-grid">
+        <label class="check-item" onclick="toggleCheck(this,'del_admin')">
+          <input type="checkbox" id="del_admin"/>
+          <div class="check-box"></div>
+          <div><div class="check-label">⚙️ Admin Dashboard</div><div class="check-desc">Manage users, content, data</div><div class="check-price" data-price="del_admin">+$1,500</div></div>
+        </label>
+        <label class="check-item" onclick="toggleCheck(this,'del_payments')">
+          <input type="checkbox" id="del_payments"/>
+          <div class="check-box"></div>
+          <div><div class="check-label">💳 Payments</div><div class="check-desc">Stripe checkout or subscriptions</div><div class="check-price" data-price="del_payments">+$1,000</div></div>
+        </label>
+        <label class="check-item" onclick="toggleCheck(this,'del_ai')">
+          <input type="checkbox" id="del_ai"/>
+          <div class="check-box"></div>
+          <div><div class="check-label">🤖 AI Features</div><div class="check-desc">GPT-4, Claude, or custom AI</div><div class="check-price" data-price="del_ai">+$2,500</div></div>
+        </label>
+        <label class="check-item" onclick="toggleCheck(this,'del_push')">
+          <input type="checkbox" id="del_push"/>
+          <div class="check-box"></div>
+          <div><div class="check-label">🔔 Push Notifications</div><div class="check-desc">iOS + Android push alerts</div><div class="check-price" data-price="del_push">+$800</div></div>
+        </label>
+        <label class="check-item" onclick="toggleCheck(this,'del_email')">
+          <input type="checkbox" id="del_email"/>
+          <div class="check-box"></div>
+          <div><div class="check-label">📧 Email Notifications</div><div class="check-desc">Transactional emails</div><div class="check-price" data-price="del_email">+$400</div></div>
+        </label>
+        <label class="check-item" onclick="toggleCheck(this,'del_maps')">
+          <input type="checkbox" id="del_maps"/>
+          <div class="check-box"></div>
+          <div><div class="check-label">📍 Maps / Location</div><div class="check-desc">Google Maps integration</div><div class="check-price" data-price="del_maps">+$600</div></div>
+        </label>
+        <label class="check-item" onclick="toggleCheck(this,'del_analytics')">
+          <input type="checkbox" id="del_analytics"/>
+          <div class="check-box"></div>
+          <div><div class="check-label">📊 Analytics</div><div class="check-desc">Usage tracking & reporting</div><div class="check-price" data-price="del_analytics">+$500</div></div>
+        </label>
+        <label class="check-item" onclick="toggleCheck(this,'del_cms')">
+          <input type="checkbox" id="del_cms"/>
+          <div class="check-box"></div>
+          <div><div class="check-label">📝 CMS / Content</div><div class="check-desc">Edit content without code</div><div class="check-price" data-price="del_cms">+$1,200</div></div>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 3: FEATURES -->
+  <div class="step" id="step-3">
+    <div class="step-header">
+      <div class="step-number">Step 3 of 8</div>
+      <h1 class="step-title">What <span>features</span> do you need?</h1>
+      <p class="step-sub">Select everything that applies. We'll scope what's in V1 vs. V2 together.</p>
+    </div>
+    <div class="field-group">
+      <label>Authentication</label>
+      <div class="check-grid">
+        <label class="check-item" onclick="toggleCheck(this,'feat_auth')">
+          <input type="checkbox" id="feat_auth"/>
+          <div class="check-box"></div>
+          <div><div class="check-label">Email + Password</div><div class="check-desc">Standard sign up / log in</div></div>
+        </label>
+        <label class="check-item" onclick="toggleCheck(this,'feat_oauth')">
+          <input type="checkbox" id="feat_oauth"/>
+          <div class="check-box"></div>
+          <div><div class="check-label">Google / Apple Login</div><div class="check-desc">One-tap OAuth sign in</div></div>
+        </label>
+        <label class="check-item" onclick="toggleCheck(this,'feat_roles')">
+          <input type="checkbox" id="feat_roles"/>
+          <div class="check-box"></div>
+          <div><div class="check-label">User Roles</div><div class="check-desc">Admin, staff, customer tiers</div></div>
+        </label>
+        <label class="check-item" onclick="toggleCheck(this,'feat_magic')">
+          <input type="checkbox" id="feat_magic"/>
+          <div class="check-box"></div>
+          <div><div class="check-label">Magic Link Login</div><div class="check-desc">Passwordless email login</div></div>
+        </label>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="field-group">
+      <label>Payments & Monetization</label>
+      <div class="check-grid">
+        <label class="check-item" onclick="toggleCheck(this,'feat_stripe')">
+          <input type="checkbox" id="feat_stripe"/>
+          <div class="check-box"></div>
+          <div><div class="check-label">One-Time Purchase</div><div class="check-desc">Stripe Checkout</div></div>
+        </label>
+        <label class="check-item" onclick="toggleCheck(this,'feat_subscriptions')">
+          <input type="checkbox" id="feat_subscriptions"/>
+          <div class="check-box"></div>
+          <div><div class="check-label">Subscriptions</div><div class="check-desc">Monthly / annual billing</div></div>
+        </label>
+        <label class="check-item" onclick="toggleCheck(this,'feat_freemium')">
+          <input type="checkbox" id="feat_freemium"/>
+          <div class="check-box"></div>
+          <div><div class="check-label">Free + Paid Tiers</div><div class="check-desc">Freemium upgrade model</div></div>
+        </label>
+        <label class="check-item" onclick="toggleCheck(this,'feat_iap')">
+          <input type="checkbox" id="feat_iap"/>
+          <div class="check-box"></div>
+          <div><div class="check-label">In-App Purchases</div><div class="check-desc">iOS StoreKit / Google Billing</div></div>
+        </label>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="field-group">
+      <label>AI & Automation</label>
+      <div class="check-grid">
+        <label class="check-item" onclick="toggleCheck(this,'feat_ai_content')">
+          <input type="checkbox" id="feat_ai_content"/>
+          <div class="check-box"></div>
+          <div><div class="check-label">AI Content Generation</div><div class="check-desc">GPT-4 / Claude powered</div></div>
+        </label>
+        <label class="check-item" onclick="toggleCheck(this,'feat_ai_chat')">
+          <input type="checkbox" id="feat_ai_chat"/>
+          <div class="check-box"></div>
+          <div><div class="check-label">AI Chat / Assistant</div><div class="check-desc">Embedded AI chatbot</div></div>
+        </label>
+        <label class="check-item" onclick="toggleCheck(this,'feat_ai_analysis')">
+          <input type="checkbox" id="feat_ai_analysis"/>
+          <div class="check-box"></div>
+          <div><div class="check-label">AI Data Analysis</div><div class="check-desc">Smart reporting & insights</div></div>
+        </label>
+        <label class="check-item" onclick="toggleCheck(this,'feat_automation')">
+          <input type="checkbox" id="feat_automation"/>
+          <div class="check-box"></div>
+          <div><div class="check-label">Workflow Automation</div><div class="check-desc">Zapier / triggered events</div></div>
+        </label>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="field-group">
+      <label>Describe any custom features not listed above</label>
+      <textarea id="custom_features" placeholder="e.g. QR code scanner at checkout, real-time order tracking map, loyalty points system..."></textarea>
+    </div>
+  </div>
+
+  <!-- STEP 4: SCREENS -->
+  <div class="step" id="step-4">
+    <div class="step-header">
+      <div class="step-number">Step 4 of 8</div>
+      <h1 class="step-title">What <span>screens</span> does your app need?</h1>
+      <p class="step-sub">List every page or screen. Don't overthink it — we'll refine together.</p>
+    </div>
+    <div class="field-group">
+      <label>App Screens <span>*</span></label>
+      <div class="screens-list" id="screensList"></div>
+      <button class="add-screen-btn" onclick="addScreen()">+ Add Screen</button>
+    </div>
+    <div class="field-group" style="margin-top:24px;">
+      <label>Any user flows or journeys to describe?</label>
+      <textarea id="user_flows" placeholder="e.g. Customer opens app → browses menu → adds to cart → checks out → receives push confirmation..."></textarea>
+    </div>
+  </div>
+
+  <!-- STEP 5: DESIGN -->
+  <div class="step" id="step-5">
+    <div class="step-header">
+      <div class="step-number">Step 5 of 8</div>
+      <h1 class="step-title">How should it <span>look?</span></h1>
+      <p class="step-sub">Give us your design direction. We'll do the rest.</p>
+    </div>
+    <div class="field-group">
+      <label>Color Mode</label>
+      <div class="check-grid" style="grid-template-columns: 1fr 1fr;">
+        <label class="check-item" onclick="selectRadio(this,'color_mode','Dark Mode')">
+          <input type="radio" name="color_mode" value="Dark Mode"/>
+          <div class="check-box"></div>
+          <div><div class="check-label">🌑 Dark Mode</div><div class="check-desc">Dark backgrounds, light text</div></div>
+        </label>
+        <label class="check-item" onclick="selectRadio(this,'color_mode','Light Mode')">
+          <input type="radio" name="color_mode" value="Light Mode"/>
+          <div class="check-box"></div>
+          <div><div class="check-label">☀️ Light Mode</div><div class="check-desc">Clean, bright, minimal</div></div>
+        </label>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field-group">
+        <label>Primary Brand Color</label>
+        <div class="color-row">
+          <input type="color" id="color_primary_picker" value="#7C3AED" oninput="document.getElementById('color_primary').value=this.value;autoSave()"/>
+          <input type="text" id="color_primary" value="#7C3AED" placeholder="#7C3AED" oninput="document.getElementById('color_primary_picker').value=this.value"/>
+        </div>
+      </div>
+      <div class="field-group">
+        <label>Accent / Secondary Color</label>
+        <div class="color-row">
+          <input type="color" id="color_secondary_picker" value="#22C55E" oninput="document.getElementById('color_secondary').value=this.value;autoSave()"/>
+          <input type="text" id="color_secondary" value="#22C55E" placeholder="#22C55E" oninput="document.getElementById('color_secondary_picker').value=this.value"/>
+        </div>
+      </div>
+    </div>
+    <div class="field-group">
+      <label>Font / Typography Style</label>
+      <select id="font_style">
+        <option value="">Select a style...</option>
+        <option>Modern & Clean (Inter, SF Pro)</option>
+        <option>Bold & Impactful (Neue Haas, Grotesk)</option>
+        <option>Elegant & Refined (Playfair, Garamond)</option>
+        <option>Friendly & Rounded (Nunito, Poppins)</option>
+        <option>Technical & Mono (JetBrains, IBM Plex)</option>
+        <option>Match a reference site I'll provide</option>
+      </select>
+    </div>
+    <div class="field-group">
+      <label>Reference Sites or Apps</label>
+      <input type="text" id="design_reference" placeholder="e.g. airbnb.com, linear.app, notion.so"/>
+    </div>
+    <div class="field-group">
+      <label>Do you have existing brand assets?</label>
+      <select id="brand_assets">
+        <option value="">Select...</option>
+        <option>Yes — I have a logo and brand guidelines</option>
+        <option>I have a logo but no guidelines</option>
+        <option>No — please create a brand for this project</option>
+      </select>
+    </div>
+    <div class="field-group">
+      <label>Any other design notes or preferences?</label>
+      <textarea id="design_notes" placeholder="e.g. Very minimal, lots of whitespace. iOS-native feel. No gradients. Think Stripe + Linear..."></textarea>
+    </div>
+  </div>
+
+  <!-- STEP 6: PACKAGE & TIMELINE -->
+  <div class="step" id="step-6">
+    <div class="step-header">
+      <div class="step-number">Step 6 of 8</div>
+      <h1 class="step-title">Choose your <span>package.</span></h1>
+      <p class="step-sub">All packages include full source code, deployment, and 30-day post-launch support.</p>
+    </div>
+    <div class="field-group">
+      <label>Package <span>*</span></label>
+      <div class="radio-grid" id="packageGrid">
+        <div class="radio-card" onclick="selectPackage(this, 'Starter — $3,500')">
+          <div class="radio-dot"></div>
+          <div class="radio-card-content">
+            <div class="radio-card-title">Starter</div>
+            <div class="radio-card-desc">Web app + backend. Perfect for MVPs and landing page with portal. Delivered in 14 days.</div>
+          </div>
+          <div class="radio-card-price">$3,500</div>
+        </div>
+        <div class="radio-card" onclick="selectPackage(this, 'Growth — $6,500')">
+          <div class="radio-dot"></div>
+          <div class="radio-card-content">
+            <div class="radio-card-title">Growth</div>
+            <div class="radio-card-desc">Web app + iOS or Android. Payments, push notifications, admin panel. 21 days.</div>
+          </div>
+          <div class="radio-card-price">$6,500</div>
+        </div>
+        <div class="radio-card" onclick="selectPackage(this, 'Full-Stack — $12,000')">
+          <div class="radio-dot"></div>
+          <div class="radio-card-content">
+            <div class="radio-card-title">Full-Stack</div>
+            <div class="radio-card-desc">Web + iOS + Android. Full feature set, AI integration, admin dashboard. 30 days.</div>
+          </div>
+          <div class="radio-card-price">$12,000</div>
+        </div>
+        <div class="radio-card" onclick="selectPackage(this, 'Custom — Let\'s Talk')">
+          <div class="radio-dot"></div>
+          <div class="radio-card-content">
+            <div class="radio-card-title">Custom</div>
+            <div class="radio-card-desc">Complex integrations, multiple apps, enterprise scale, or unique requirements.</div>
+          </div>
+          <div class="radio-card-price">Custom</div>
+        </div>
+      </div>
+      <input type="hidden" id="package"/>
+    </div>
+    <div class="field-row">
+      <div class="field-group">
+        <label>Preferred Start Date</label>
+        <input type="date" id="start_date"/>
+      </div>
+      <div class="field-group">
+        <label>Target Launch Date</label>
+        <input type="date" id="target_launch"/>
+      </div>
+    </div>
+    <div class="field-group">
+      <label>Budget Range</label>
+      <select id="budget">
+        <option value="">Select budget range...</option>
+        <option>Under $3,500</option>
+        <option>$3,500 – $6,500</option>
+        <option>$6,500 – $12,000</option>
+        <option>$12,000 – $25,000</option>
+        <option>$25,000+</option>
+        <option>Flexible — show me what I can get</option>
+      </select>
+    </div>
+    <div class="field-group">
+      <label>How urgent is this project?</label>
+      <select id="urgency">
+        <option value="">Select...</option>
+        <option>ASAP — I need this yesterday</option>
+        <option>This month</option>
+        <option>Next 1–3 months</option>
+        <option>3–6 months</option>
+        <option>Just exploring right now</option>
+      </select>
+    </div>
+    <div class="field-group">
+      <label>Additional notes about timeline or budget</label>
+      <textarea id="additional_notes" placeholder="e.g. We have a soft launch event on July 15 we need to hit. Budget is flexible for the right team..."></textarea>
+    </div>
+  </div>
+
+  <!-- STEP 7: CONTACT -->
+  <div class="step" id="step-7">
+    <div class="step-header">
+      <div class="step-number">Step 7 of 8</div>
+      <h1 class="step-title">Your <span>contact</span> information.</h1>
+      <p class="step-sub">We'll send a copy of your full project brief and quote to your email.</p>
+    </div>
+    <div class="field-row">
+      <div class="field-group">
+        <label>First Name <span>*</span></label>
+        <input type="text" id="first_name" placeholder="Jane" autocomplete="given-name"/>
+      </div>
+      <div class="field-group">
+        <label>Last Name <span>*</span></label>
+        <input type="text" id="last_name" placeholder="Smith" autocomplete="family-name"/>
+      </div>
+    </div>
+    <div class="field-group">
+      <label>Email Address <span>*</span></label>
+      <input type="email" id="client_email" placeholder="jane@company.com" autocomplete="email"/>
+    </div>
+    <div class="field-group">
+      <label>Phone Number (optional)</label>
+      <input type="tel" id="phone" placeholder="+1 (555) 000-0000" autocomplete="tel"/>
+    </div>
+    <div class="field-group">
+      <label>How did you hear about us?</label>
+      <select id="referral">
+        <option value="">Select...</option>
+        <option>Google Search</option>
+        <option>Referral from a friend</option>
+        <option>LinkedIn</option>
+        <option>QR Code</option>
+        <option>arrowtrackusa.com</option>
+        <option>Other</option>
+      </select>
+    </div>
+    <div class="field-group">
+      <label>Anything else you want us to know?</label>
+      <textarea id="final_notes" placeholder="Any context, constraints, existing code, or questions for us..."></textarea>
+    </div>
+  </div>
+
+  <!-- STEP 8: REVIEW -->
+  <div class="step" id="step-8">
+    <div class="step-header">
+      <div class="step-number">Step 8 of 8</div>
+      <h1 class="step-title">Your <span>quote</span> & brief.</h1>
+      <p class="step-sub">Here's your itemized estimate. Pay a 50% deposit to lock your build slot — or just submit the brief and we'll follow up.</p>
+    </div>
+    <div id="quoteCard" class="quote-card"></div>
+    <div id="reviewContent"></div>
+    <div id="payResult"></div>
+  </div>
+
+  <!-- SUCCESS -->
+  <div class="success-wrap" id="successWrap">
+    <div class="success-icon">🚀</div>
+    <h2 class="success-title">Brief Submitted!</h2>
+    <p class="success-sub">We've received your project brief and sent a copy to your email. Expect to hear from us within <strong>24 hours</strong>.</p>
+    <div class="success-ref" id="successRef">SOW-XXXXXX</div>
+    <p class="success-sub" style="font-size:15px;">Your reference number is above — keep it handy for any follow-up questions.</p>
+  </div>
+
+</main>
+
+<!-- LIVE QUOTE BAR -->
+<div class="quote-bar" id="quoteBar" style="display:none;">
+  <div class="quote-pill" id="quotePill">
+    <span class="qp-label">Your estimate</span>
+    <span class="qp-total"><span class="qp-bump" id="qpTotal">$0</span></span>
+  </div>
+</div>
+
+<!-- NAV -->
+<div class="step-nav" id="stepNav">
+  <div class="nav-left autosave" id="autosaveLabel">Auto-saving...</div>
+  <div class="nav-right">
+    <button class="btn-back" id="btnBack" onclick="prevStep()" style="display:none">← Back</button>
+    <button class="btn-next" id="btnNext" onclick="nextStep()">Continue →</button>
+    <button class="btn-submit" id="btnSubmit" onclick="submitForm()" style="display:none">Just Submit Brief</button>
+    <button class="btn-pay" id="btnPay" onclick="payDeposit()" style="display:none">Pay 50% Deposit →</button>
+  </div>
+</div>
+
+<script>
+  let currentStep = 1;
+  const TOTAL_STEPS = 8;
+  let formData = {};
+  let defaultScreens = ['Landing / Home Page','Sign Up','Log In','Dashboard / Home','Settings / Account'];
+
+  // ─── Pricing engine (mirror of server PRICING) ───
+  const PRICING = {
+    packages: {
+      'Starter — $3,500': 3500,
+      'Growth — $6,500': 6500,
+      'Full-Stack — $12,000': 12000,
+      "Custom — Let's Talk": 0
+    },
+    addons: {
+      del_admin:     { label: 'Admin Dashboard',     price: 1500 },
+      del_payments:  { label: 'Payments (Stripe)',   price: 1000 },
+      del_ai:        { label: 'AI Features',          price: 2500 },
+      del_push:      { label: 'Push Notifications',   price: 800 },
+      del_email:     { label: 'Email Notifications',  price: 400 },
+      del_maps:      { label: 'Maps / Location',      price: 600 },
+      del_analytics: { label: 'Analytics',            price: 500 },
+      del_cms:       { label: 'CMS / Content',        price: 1200 }
+    }
+  };
+
+  function computeQuote(d) {
+    const base = PRICING.packages[d.package] || 0;
+    const items = [];
+    if (d.package) items.push({ label: d.package.split(' — ')[0] + ' Package', price: base });
+    let addonTotal = 0;
+    Object.keys(PRICING.addons).forEach(key => {
+      if (d[key]) { items.push(PRICING.addons[key]); addonTotal += PRICING.addons[key].price; }
+    });
+    const total = base + addonTotal;
+    return { items, total, deposit: Math.round(total * 0.5), isCustom: !!(d.package && d.package.startsWith('Custom')) };
+  }
+
+  const money = n => '$' + (n || 0).toLocaleString();
+
+  // ─── Live quote bar ───
+  function updateQuoteBar() {
+    const q = computeQuote(formData);
+    const bar = document.getElementById('quoteBar');
+    const totalEl = document.getElementById('qpTotal');
+    const labelEl = document.querySelector('#quotePill .qp-label');
+    // Show only once a package or any add-on is selected
+    const hasSelection = formData.package || q.items.length > 0;
+    bar.style.display = (currentStep >= 2 && currentStep < TOTAL_STEPS && hasSelection) ? 'flex' : 'none';
+    if (q.isCustom) {
+      labelEl.textContent = 'Custom build';
+      totalEl.textContent = "Let's talk";
+    } else {
+      labelEl.textContent = 'Your estimate';
+      const newText = money(q.total);
+      if (totalEl.textContent !== newText) {
+        totalEl.textContent = newText;
+        const pill = document.getElementById('quotePill');
+        pill.classList.add('bump');
+        setTimeout(() => pill.classList.remove('bump'), 220);
+      }
+    }
+  }
+
+  // Init screens
+  function initScreens() {
+    const list = document.getElementById('screensList');
+    list.innerHTML = '';
+    let saved = formData.screens_list || defaultScreens;
+    saved.forEach(s => addScreen(s));
+  }
+
+  function addScreen(val='') {
+    const list = document.getElementById('screensList');
+    const div = document.createElement('div');
+    div.className = 'screen-item';
+    div.innerHTML = `<span style="color:#555;font-size:14px;">▸</span><input type="text" placeholder="Screen name e.g. Order History" value="${val}" oninput="saveScreens()"/><button class="screen-remove" onclick="this.parentElement.remove();saveScreens()">×</button>`;
+    list.appendChild(div);
+  }
+
+  function saveScreens() {
+    const inputs = document.querySelectorAll('#screensList input');
+    formData.screens_list = Array.from(inputs).map(i => i.value).filter(v => v.trim());
+    formData.screens = formData.screens_list.join('\n');
+    autoSave();
+  }
+
+  // Toggle checkbox
+  function toggleCheck(el, id) {
+    el.classList.toggle('checked');
+    formData[id] = el.classList.contains('checked');
+    autoSave();
+    updateQuoteBar();
+  }
+
+  // Radio as checkbox
+  function selectRadio(el, name, value) {
+    document.querySelectorAll(`input[name="${name}"]`).forEach(r => {
+      r.closest('.check-item').classList.remove('checked');
+    });
+    el.classList.add('checked');
+    formData[name] = value;
+    autoSave();
+  }
+
+  // Package select
+  function selectPackage(el, value) {
+    document.querySelectorAll('#packageGrid .radio-card').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    document.getElementById('package').value = value;
+    formData.package = value;
+    autoSave();
+    updateQuoteBar();
+  }
+
+  // Collect all field values
+  function collectFields() {
+    document.querySelectorAll('input[type="text"], input[type="email"], input[type="tel"], input[type="date"], select, textarea').forEach(el => {
+      if (el.id) formData[el.id] = el.value;
+    });
+    const fn = formData.first_name || '';
+    const ln = formData.last_name || '';
+    if (fn || ln) formData.client_name = (fn + ' ' + ln).trim();
+    saveScreens();
+  }
+
+  // Auto-save to localStorage
+  function autoSave() {
+    collectFields();
+    localStorage.setItem('sow_draft', JSON.stringify(formData));
+    const label = document.getElementById('autosaveLabel');
+    label.textContent = '✓ Draft saved';
+    label.className = 'autosave saved';
+    setTimeout(() => { label.textContent = 'Auto-saving...'; label.className = 'autosave'; }, 2000);
+  }
+
+  // Load saved draft
+  function loadDraft() {
+    const saved = localStorage.getItem('sow_draft');
+    if (saved) {
+      formData = JSON.parse(saved);
+      Object.keys(formData).forEach(key => {
+        const el = document.getElementById(key);
+        if (el && (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA') && el.type !== 'checkbox' && el.type !== 'radio') {
+          el.value = formData[key] || '';
+        }
+      });
+      if (formData.color_primary) { document.getElementById('color_primary_picker').value = formData.color_primary; }
+      if (formData.color_secondary) { document.getElementById('color_secondary_picker').value = formData.color_secondary; }
+      ['platform_web','platform_ios','platform_android','del_admin','del_payments','del_ai','del_push','del_email','del_maps','del_analytics','del_cms',
+       'feat_auth','feat_oauth','feat_roles','feat_magic','feat_stripe','feat_subscriptions','feat_freemium','feat_iap',
+       'feat_ai_content','feat_ai_chat','feat_ai_analysis','feat_automation'].forEach(id => {
+        if (formData[id]) {
+          const el = document.querySelector(`[onclick*="'${id}'"]`);
+          if (el) el.classList.add('checked');
+        }
+      });
+      if (formData.color_mode) {
+        const el = document.querySelector(`[onclick*="'${formData.color_mode}'"]`);
+        if (el) el.classList.add('checked');
+      }
+      if (formData.package) {
+        const el = document.querySelector(`#packageGrid .radio-card[onclick*="${formData.package.split(' — ')[0]}"]`);
+        if (el) el.classList.add('selected');
+      }
+    }
+    initScreens();
+  }
+
+  // Build quote card + review
+  function buildReview() {
+    collectFields();
+    const d = formData;
+    const q = computeQuote(d);
+
+    // Quote card
+    const card = document.getElementById('quoteCard');
+    const payBtn = document.getElementById('btnPay');
+    if (!d.package) {
+      card.innerHTML = `<div class="quote-card-title">Estimated Quote</div><div class="quote-custom">Select a package on Step 6 to see your estimate.</div>`;
+      payBtn.style.display = 'none';
+    } else if (q.isCustom) {
+      card.innerHTML = `<div class="quote-card-title">Custom Build</div>
+        <div class="quote-custom">Your project needs a custom quote. Submit your brief and we'll send a detailed proposal within 24 hours — no deposit required to start the conversation.</div>
+        <div class="quote-note">Final apps use the client's own Stripe account + webhook keys. Arrowtrack Solutions provides and manages all hosting.</div>`;
+      payBtn.style.display = 'none';
+    } else {
+      const lines = q.items.map(i => `<div class="quote-line"><span class="ql-label">${i.label}</span><span class="ql-price">${money(i.price)}</span></div>`).join('');
+      card.innerHTML = `
+        <div class="quote-card-title">Estimated Quote</div>
+        ${lines}
+        <div class="quote-total"><span>Total</span><span class="qt-price">${money(q.total)}</span></div>
+        <div class="quote-deposit"><span class="qd-label">50% deposit to start your build</span><span class="qd-price">${money(q.deposit)}</span></div>
+        <div class="quote-note">Final apps use the client's own Stripe account + webhook keys. Arrowtrack Solutions provides and manages all hosting. Remaining 50% is due on delivery.</div>`;
+      payBtn.style.display = 'block';
+      payBtn.textContent = `Pay ${money(q.deposit)} Deposit →`;
+    }
+
+    // Review summary
+    const platforms = [d.platform_web && 'Web', d.platform_ios && 'iOS', d.platform_android && 'Android'].filter(Boolean).join(', ') || '—';
+    const features = [
+      d.feat_auth && 'Email Auth', d.feat_oauth && 'Google/Apple OAuth', d.feat_roles && 'User Roles',
+      d.feat_stripe && 'Stripe Payments', d.feat_subscriptions && 'Subscriptions',
+      d.feat_ai_content && 'AI Content', d.feat_ai_chat && 'AI Chat', d.feat_ai_analysis && 'AI Analysis'
+    ].filter(Boolean).join(', ') || '—';
+
+    const rows = [
+      ['Project', d.project_name || '—'],
+      ['Company', d.company_name || '—'],
+      ['Industry', d.business_type || '—'],
+      ['Platforms', platforms],
+      ['Features', features],
+      ['Package', d.package || '—'],
+      ['Target Launch', d.target_launch || '—'],
+      ['Urgency', d.urgency || '—'],
+      ['Contact', `${d.client_name || '—'} · ${d.client_email || '—'}`],
+    ];
+
+    document.getElementById('reviewContent').innerHTML = `
+      <div class="review-section">
+        <div class="review-section-title">Project Summary</div>
+        ${rows.map(([k,v]) => `<div class="review-row"><div class="review-key">${k}</div><div class="review-val">${v}</div></div>`).join('')}
+      </div>
+      <div class="review-section">
+        <div class="review-section-title">Goal</div>
+        <p style="color:#ccc;font-size:14px;line-height:1.7;">${d.business_goal || '—'}</p>
+      </div>
+      <div class="review-section">
+        <div class="review-section-title">Screens (${(d.screens_list||[]).length})</div>
+        <p style="color:#ccc;font-size:14px;line-height:1.9;">${(d.screens_list||[]).join(' · ') || '—'}</p>
+      </div>
+    `;
+  }
+
+  // Navigation
+  function updateNav() {
+    const back = document.getElementById('btnBack');
+    const next = document.getElementById('btnNext');
+    const sub = document.getElementById('btnSubmit');
+    const pay = document.getElementById('btnPay');
+    back.style.display = currentStep > 1 ? 'block' : 'none';
+    next.style.display = currentStep < TOTAL_STEPS ? 'block' : 'none';
+    sub.style.display = currentStep === TOTAL_STEPS ? 'block' : 'none';
+    pay.style.display = (currentStep === TOTAL_STEPS && formData.package && !String(formData.package).startsWith('Custom')) ? 'block' : 'none';
+
+    document.getElementById('progressFill').style.width = ((currentStep / TOTAL_STEPS) * 100) + '%';
+    document.querySelectorAll('.progress-label').forEach(l => {
+      const s = parseInt(l.dataset.step);
+      l.className = 'progress-label' + (s === currentStep ? ' active' : s < currentStep ? ' done' : '');
+    });
+    updateQuoteBar();
+  }
+
+  function showStep(n) {
+    document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+    document.getElementById(`step-${n}`).classList.add('active');
+    window.scrollTo(0, 0);
+    currentStep = n;
+    if (n === TOTAL_STEPS) buildReview();
+    updateNav();
+  }
+
+  function nextStep() { autoSave(); if (currentStep < TOTAL_STEPS) showStep(currentStep + 1); }
+  function prevStep() { if (currentStep > 1) showStep(currentStep - 1); }
+
+  // Allow clicking progress labels to jump
+  document.querySelectorAll('.progress-label').forEach(l => {
+    l.addEventListener('click', () => { const s = parseInt(l.dataset.step); if (s <= currentStep || formData.client_email) showStep(s); });
+  });
+
+  function showSuccess(ref) {
+    document.getElementById('formWrap').querySelectorAll('.step').forEach(s => s.style.display = 'none');
+    document.getElementById('stepNav').style.display = 'none';
+    document.getElementById('quoteBar').style.display = 'none';
+    document.querySelector('.progress-wrap').style.display = 'none';
+    const sw = document.getElementById('successWrap');
+    sw.classList.add('show');
+    document.getElementById('successRef').textContent = ref;
+    localStorage.removeItem('sow_draft');
+    window.scrollTo(0, 0);
+  }
+
+  // Submit brief only
+  async function submitForm() {
+    collectFields();
+    const btn = document.getElementById('btnSubmit');
+    btn.disabled = true; btn.textContent = 'Submitting...';
+    try {
+      const res = await fetch('/api/submit', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+      const data = await res.json();
+      if (data.success) showSuccess(data.ref);
+      else { btn.disabled = false; btn.textContent = 'Just Submit Brief'; alert('Something went wrong. Please try again.'); }
+    } catch (err) {
+      btn.disabled = false; btn.textContent = 'Just Submit Brief';
+      alert('Network error. Please check your connection and try again.');
+    }
+  }
+
+  // Pay deposit — save brief first, then go to Stripe checkout
+  async function payDeposit() {
+    collectFields();
+    if (!formData.client_email) { alert('Please add your email on Step 7 first.'); showStep(7); return; }
+    const btn = document.getElementById('btnPay');
+    btn.disabled = true; btn.textContent = 'Starting checkout...';
+    try {
+      // Save brief
+      await fetch('/api/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formData) });
+      // Create checkout session
+      const res = await fetch('/api/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formData) });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else if (data.demo) {
+        document.getElementById('payResult').innerHTML = `<div class="demo-msg">💳 ${data.demo && data.message ? data.message : 'Stripe is not connected yet.'} Your brief has been saved and emailed.</div>`;
+        btn.disabled = false;
+        const q = computeQuote(formData);
+        btn.textContent = `Pay ${money(q.deposit)} Deposit →`;
+      } else {
+        btn.disabled = false; const q = computeQuote(formData); btn.textContent = `Pay ${money(q.deposit)} Deposit →`;
+        alert('Could not start checkout. Please try again.');
+      }
+    } catch (err) {
+      btn.disabled = false; const q = computeQuote(formData); btn.textContent = `Pay ${money(q.deposit)} Deposit →`;
+      alert('Network error. Please try again.');
+    }
+  }
+
+  // Input listeners for auto-save
+  document.querySelectorAll('input, select, textarea').forEach(el => {
+    el.addEventListener('change', autoSave);
+    el.addEventListener('input', autoSave);
+  });
+
+  // Handle return from Stripe success
+  if (new URLSearchParams(window.location.search).get('paid') === '1') {
+    loadDraft();
+    showSuccess(formData.ref_code || 'Payment received');
+    document.querySelector('.success-title').textContent = 'Deposit Received! 🎉';
+    document.querySelector('.success-sub').innerHTML = "Thank you! Your deposit is confirmed and your build slot is locked. We'll be in touch within <strong>24 hours</strong> to kick things off.";
+  } else {
+    loadDraft();
+    updateNav();
+  }
+</script>
+</body>
+</html>

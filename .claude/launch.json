@@ -3,9 +3,9 @@
   "configurations": [
     {
       "name": "arrowtrack-services",
-      "runtimeExecutable": "npx",
-      "runtimeArgs": ["serve", "-p", "4200", "/Users/arrowtrack.apple/Desktop/arrowtrack-dev-services"],
-      "port": 4200
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["server.js"],
+      "port": 3000
     }
   ]
 }
