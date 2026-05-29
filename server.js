@@ -388,6 +388,25 @@ app.post('/api/checkout', async (req, res) => {
   } catch (err) { console.error('Checkout error:', err); res.status(500).json({ error: 'Server error' }); }
 });
 
+// ─── Email helpers (reusable) ───────────────────────────────────
+function emailShell(title, bodyHtml, ref) {
+  return `<div style="font-family:Arial,sans-serif;max-width:680px;margin:0 auto;background:#0d0d0d;color:#fff;padding:40px;border-radius:12px;">
+      <div style="margin-bottom:28px;"><span style="color:#7C3AED;font-size:20px;font-weight:800;">Arrowtrack</span><span style="color:#fff;font-size:20px;font-weight:800;"> Solutions</span></div>
+      <h2 style="color:#22C55E;margin-bottom:20px;">${title}</h2>${bodyHtml}
+      <div style="margin-top:32px;padding-top:20px;border-top:1px solid #333;font-size:12px;color:#555;">Arrowtrack Solutions LLC · Carpinteria, CA${ref ? ' · Ref: ' + ref : ''}</div></div>`;
+}
+async function sendEmail(to, subject, html, from = 'Arrowtrack Solutions <hello@delib.io>') {
+  const RESEND_API_KEY = process.env.RESEND_API_KEY;
+  if (!RESEND_API_KEY || !to) return false;
+  try {
+    const r = await fetch('https://api.resend.com/emails', {
+      method: 'POST', headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from, to, subject, html })
+    });
+    return r.ok;
+  } catch (err) { console.error('sendEmail error:', err); return false; }
+}
+
 // ─── Admin API ──────────────────────────────────────────────────
 app.get('/admin/api/submissions', async (req, res) => {
   const db = await readDB();
@@ -416,6 +435,24 @@ app.delete('/admin/api/submissions/:id', async (req, res) => {
     if (filtered.length !== accts.length) await writeAccounts(filtered);
   }
   res.json({ success: true });
+});
+// Approve a brief and email the customer a link to pay their deposit in the portal.
+app.post('/admin/api/submissions/:id/send-payment-link', async (req, res) => {
+  const db = await readDB(); const idx = db.findIndex(r => r.id == req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Not found' });
+  const row = db[idx];
+  const quote = computeQuote(row.data || {});
+  if (quote.isCustom || quote.deposit === 0) return res.status(400).json({ error: 'Custom quote — no fixed deposit to bill. Contact the client directly.' });
+  row.status = 'approved';
+  await writeDB(db);
+  const origin = `${req.protocol}://${req.get('host')}`;
+  const portalUrl = `${origin}/project`;
+  const body = `<p style="color:#aaa;margin-bottom:16px;">Hi ${row.client_name || 'there'}, your project brief has been reviewed and <strong style="color:#22C55E;">approved</strong>. 🎉</p>
+    <p style="color:#aaa;margin-bottom:16px;">To lock in your build, please pay your <strong style="color:#22C55E;">50% deposit of $${quote.deposit.toLocaleString()}</strong> (project total $${quote.total.toLocaleString()}).</p>
+    <p style="margin:26px 0;"><a href="${portalUrl}" style="background:#7C3AED;color:#fff;text-decoration:none;padding:14px 28px;border-radius:8px;font-weight:700;display:inline-block;">Review &amp; Pay Deposit →</a></p>
+    <p style="color:#777;font-size:13px;">Log in with the email and password you used when submitting your brief. The remaining 50% is due on delivery.</p>`;
+  const emailSent = await sendEmail(row.client_email, `Your project is approved — pay your deposit · ${row.ref_code}`, emailShell('Your Project is Approved', body, row.ref_code));
+  res.json({ success: true, status: 'approved', emailSent, deposit: quote.deposit, portalUrl });
 });
 
 // ─── Customer auth API ──────────────────────────────────────────
@@ -485,6 +522,41 @@ app.post('/api/pay-balance', requireCustomer, async (req, res) => {
     if (session.url) res.json({ url: session.url });
     else { console.error('Stripe error:', session); res.status(500).json({ error: 'Checkout failed' }); }
   } catch (err) { console.error('Balance checkout error:', err); res.status(500).json({ error: 'Server error' }); }
+});
+
+// Pay the 50% deposit on an approved project (customer's own Stripe checkout)
+app.post('/api/pay-deposit', requireCustomer, async (req, res) => {
+  const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
+  const db = await readDB();
+  const row = db.find(r => r.ref_code === req.body.ref_code && normEmail(r.client_email) === req.customerEmail);
+  if (!row) return res.status(404).json({ error: 'Project not found' });
+  if (row.status !== 'approved') return res.status(400).json({ error: 'This project has not been approved for payment yet.' });
+  if (row.deposit_paid) return res.json({ demo: true, message: 'Your deposit has already been paid.' });
+  const q = computeQuote(row.data || {});
+  if (q.isCustom || q.deposit === 0) return res.status(400).json({ error: 'This is a custom quote — we will invoice you directly.' });
+  if (!STRIPE_SECRET_KEY) {
+    return res.json({ demo: true, message: `Deposit of $${q.deposit.toLocaleString()} would be charged here once Stripe is connected.` });
+  }
+  try {
+    const origin = req.headers.origin || `http://localhost:${PORT}`;
+    const params = new URLSearchParams();
+    params.append('mode', 'payment');
+    params.append('success_url', `${origin}/project?deposit_paid=1`);
+    params.append('cancel_url', `${origin}/project`);
+    params.append('line_items[0][price_data][currency]', 'usd');
+    params.append('line_items[0][price_data][product_data][name]', `${row.project_name || 'Project'} — 50% Deposit`);
+    params.append('line_items[0][price_data][unit_amount]', String(q.deposit * 100));
+    params.append('line_items[0][quantity]', '1');
+    params.append('customer_email', req.customerEmail);
+    const r = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${STRIPE_SECRET_KEY}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params
+    });
+    const session = await r.json();
+    if (session.url) res.json({ url: session.url });
+    else { console.error('Stripe error:', session); res.status(500).json({ error: 'Checkout failed' }); }
+  } catch (err) { console.error('Deposit checkout error:', err); res.status(500).json({ error: 'Server error' }); }
 });
 
 // ─── Routes ─────────────────────────────────────────────────────

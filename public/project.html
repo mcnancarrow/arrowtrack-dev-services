@@ -35,6 +35,7 @@
     .status-badge { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; padding: 5px 12px; border-radius: 100px; white-space: nowrap; }
     .status-new { background: rgba(34,197,94,0.15); color: var(--accent); }
     .status-reviewing { background: rgba(124,58,237,0.15); color: #a78bfa; }
+    .status-approved { background: rgba(34,197,94,0.18); color: #4ade80; }
     .status-active { background: rgba(59,130,246,0.15); color: #60a5fa; }
     .status-complete { background: rgba(34,197,94,0.2); color: var(--accent); }
 
@@ -97,6 +98,7 @@
   const STAGES = [
     { key: 'new', label: 'Submitted' },
     { key: 'reviewing', label: 'Reviewing' },
+    { key: 'approved', label: 'Approved' },
     { key: 'active', label: 'In Build' },
     { key: 'complete', label: 'Delivered' }
   ];
@@ -123,6 +125,7 @@
     const depositPaid = p.deposit_paid;
     const balancePaid = p.balance_paid;
     const showBalance = p.balance_due > 0 && !balancePaid && (p.status === 'active' || p.status === 'complete');
+    const showDeposit = p.status === 'approved' && !depositPaid && p.quote_deposit > 0;
 
     return `<div class="project">
       <div class="project-head">
@@ -153,6 +156,10 @@
         </div>
       </div>
 
+      ${showDeposit ? `<div class="balance-bar">
+        <div class="balance-info"><div class="bl">🎉 Approved! Pay your 50% deposit to start the build</div><div class="bv">${money(p.quote_deposit)}</div></div>
+        <button class="btn-pay" onclick="payDeposit('${p.ref_code}', this)">Pay Deposit →</button>
+      </div>` : ''}
       ${showBalance ? `<div class="balance-bar">
         <div class="balance-info"><div class="bl">Final balance due on delivery</div><div class="bv">${money(p.balance_due)}</div></div>
         <button class="btn-pay" onclick="payBalance('${p.ref_code}', this)">Pay Balance →</button>
@@ -172,6 +179,17 @@
     } catch (err) { btn.disabled = false; btn.textContent = 'Pay Balance →'; alert('Network error.'); }
   }
 
+  async function payDeposit(ref, btn) {
+    btn.disabled = true; btn.textContent = 'Starting checkout…';
+    try {
+      const res = await fetch('/api/pay-deposit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ref_code: ref }) });
+      const data = await res.json();
+      if (data.url) { window.location.href = data.url; }
+      else if (data.demo) { document.getElementById('payNote-' + ref).textContent = '💳 ' + data.message; btn.disabled = false; btn.textContent = 'Pay Deposit →'; }
+      else { btn.disabled = false; btn.textContent = 'Pay Deposit →'; alert(data.error || 'Could not start checkout.'); }
+    } catch (err) { btn.disabled = false; btn.textContent = 'Pay Deposit →'; alert('Network error.'); }
+  }
+
   async function load() {
     // Auth check
     const meRes = await fetch('/api/me');
@@ -181,6 +199,9 @@
 
     if (new URLSearchParams(location.search).get('balance_paid') === '1') {
       document.getElementById('banner').innerHTML = '<div class="banner">🎉 Payment received — thank you! Your balance is now settled.</div>';
+    }
+    if (new URLSearchParams(location.search).get('deposit_paid') === '1') {
+      document.getElementById('banner').innerHTML = '<div class="banner">🎉 Deposit received — thank you! Your build is now in the queue.</div>';
     }
 
     const res = await fetch('/api/my-projects');

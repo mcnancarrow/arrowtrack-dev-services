@@ -49,6 +49,7 @@
     .status-new { background: rgba(34,197,94,0.15); color: var(--accent); }
     .status-reviewing { background: rgba(124,58,237,0.15); color: #a78bfa; }
     .status-active { background: rgba(59,130,246,0.15); color: #60a5fa; }
+    .status-approved { background: rgba(34,197,94,0.18); color: #4ade80; }
     .status-complete { background: rgba(255,255,255,0.08); color: #888; }
 
     /* DETAIL */
@@ -70,6 +71,7 @@
     .btn-active { background: rgba(59,130,246,0.2); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3); }
     .btn-complete { background: rgba(255,255,255,0.08); color: #aaa; border: 1px solid rgba(255,255,255,0.12); }
     .btn-delete { background: rgba(239,68,68,0.15); color: #fca5a5; border: 1px solid rgba(239,68,68,0.3); }
+    .btn-approve { background: linear-gradient(135deg,#7C3AED,#22C55E); color: #fff; border: none; font-weight: 700; }
 
     /* QUOTE BANNER */
     .quote-banner { display: flex; gap: 32px; align-items: center; background: linear-gradient(160deg, rgba(124,58,237,0.12), rgba(34,197,94,0.06)); border: 1px solid rgba(124,58,237,0.35); border-radius: 12px; padding: 20px 28px; margin-bottom: 28px; }
@@ -180,6 +182,7 @@
           <div class="detail-sub">${s.client_name} · ${s.client_email} · <span style="color:#a78bfa;font-family:monospace;">${s.ref_code}</span></div>
         </div>
         <div class="detail-actions">
+          <button class="action-btn btn-approve" onclick="sendPaymentLink(${id})">Approve &amp; Send Payment Link</button>
           <button class="action-btn btn-reviewing" onclick="updateStatus(${id},'reviewing')">Mark Reviewing</button>
           <button class="action-btn btn-active" onclick="updateStatus(${id},'active')">Mark Active</button>
           <button class="action-btn btn-complete" onclick="updateStatus(${id},'complete')">Complete</button>
@@ -269,6 +272,18 @@
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status })
     });
+    loadSubmissions();
+    loadDetail(id);
+  }
+
+  async function sendPaymentLink(id) {
+    if (!confirm('Approve this brief and email the client a payment link for their 50% deposit?')) return;
+    const res = await fetch(`/admin/api/submissions/${id}/send-payment-link`, { method: 'POST' });
+    let data = {};
+    try { data = await res.json(); } catch {}
+    if (!res.ok) { alert(data.error || 'Could not send payment link.'); return; }
+    const depositTxt = data.deposit ? `$${data.deposit.toLocaleString()}` : 'the deposit';
+    alert(`Status set to Approved.\n\n${data.emailSent ? '✅ Payment link emailed to the client' : '⚠️ Email not sent (check RESEND_API_KEY)'} for ${depositTxt}.\n\nThey can also pay from the portal: ${data.portalUrl || '/project'}`);
     loadSubmissions();
     loadDetail(id);
   }

@@ -711,7 +711,7 @@
     <div class="step-header">
       <div class="step-number">Step 8 of 8</div>
       <h1 class="step-title">Your <span>quote</span> & brief.</h1>
-      <p class="step-sub">Here's your itemized estimate. Pay a 50% deposit to lock your build slot — or just submit the brief and we'll follow up.</p>
+      <p class="step-sub">Here's your itemized estimate. Submit your brief and we'll review it — then send you a payment link to lock in your build.</p>
     </div>
     <div id="quoteCard" class="quote-card"></div>
     <div id="reviewContent"></div>
@@ -722,7 +722,7 @@
   <div class="success-wrap" id="successWrap">
     <div class="success-icon">🚀</div>
     <h2 class="success-title">Brief Submitted!</h2>
-    <p class="success-sub">We've received your project brief and sent a copy to your email. Expect to hear from us within <strong>24 hours</strong>.</p>
+    <p class="success-sub">We've received your project brief and sent a copy to your email. We'll review it and send you a <strong>payment link</strong> to lock in your build — usually within <strong>24 hours</strong>.</p>
     <div class="success-ref" id="successRef">SOW-XXXXXX</div>
     <p class="success-sub" style="font-size:15px;">Your reference number is above — keep it handy for any follow-up questions.</p>
     <a href="/project" class="btn-next" style="display:inline-block;text-decoration:none;">View My Project →</a>
@@ -744,7 +744,7 @@
   <div class="nav-right">
     <button class="btn-back" id="btnBack" onclick="prevStep()" style="display:none">← Back</button>
     <button class="btn-next" id="btnNext" onclick="nextStep()">Continue →</button>
-    <button class="btn-submit" id="btnSubmit" onclick="submitForm()" style="display:none">Just Submit Brief</button>
+    <button class="btn-submit" id="btnSubmit" onclick="submitForm()" style="display:none">Submit Brief for Review →</button>
     <button class="btn-pay" id="btnPay" onclick="payDeposit()" style="display:none">Pay 50% Deposit →</button>
   </div>
 </div>
@@ -941,10 +941,9 @@
         <div class="quote-card-title">Estimated Quote</div>
         ${lines}
         <div class="quote-total"><span>Total</span><span class="qt-price">${money(q.total)}</span></div>
-        <div class="quote-deposit"><span class="qd-label">50% deposit to start your build</span><span class="qd-price">${money(q.deposit)}</span></div>
-        <div class="quote-note">Final apps use the client's own Stripe account + webhook keys. Arrowtrack Solutions provides and manages all hosting. Remaining 50% is due on delivery.</div>`;
-      payBtn.style.display = 'block';
-      payBtn.textContent = `Pay ${money(q.deposit)} Deposit →`;
+        <div class="quote-deposit"><span class="qd-label">50% deposit to start (payment link sent after review)</span><span class="qd-price">${money(q.deposit)}</span></div>
+        <div class="quote-note">This is an estimate. We'll review your brief and email a payment link for the 50% deposit. Final apps use the client's own Stripe account + webhook keys; Arrowtrack provides and manages all hosting. Remaining 50% is due on delivery.</div>`;
+      payBtn.style.display = 'none';
     }
 
     // Review summary
@@ -992,7 +991,7 @@
     back.style.display = currentStep > 1 ? 'block' : 'none';
     next.style.display = currentStep < TOTAL_STEPS ? 'block' : 'none';
     sub.style.display = currentStep === TOTAL_STEPS ? 'block' : 'none';
-    pay.style.display = (currentStep === TOTAL_STEPS && formData.package && !String(formData.package).startsWith('Custom')) ? 'block' : 'none';
+    pay.style.display = 'none'; // review-first: no instant payment; link sent after human review
 
     document.getElementById('progressFill').style.width = ((currentStep / TOTAL_STEPS) * 100) + '%';
     document.querySelectorAll('.progress-label').forEach(l => {
@@ -1044,9 +1043,9 @@
       });
       const data = await res.json();
       if (data.success) showSuccess(data.ref);
-      else { btn.disabled = false; btn.textContent = 'Just Submit Brief'; alert('Something went wrong. Please try again.'); }
+      else { btn.disabled = false; btn.textContent = 'Submit Brief for Review →'; alert('Something went wrong. Please try again.'); }
     } catch (err) {
-      btn.disabled = false; btn.textContent = 'Just Submit Brief';
+      btn.disabled = false; btn.textContent = 'Submit Brief for Review →';
       alert('Network error. Please check your connection and try again.');
     }
   }
