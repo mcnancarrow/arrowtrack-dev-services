@@ -841,15 +841,17 @@
     const list = document.getElementById('screensList');
     const div = document.createElement('div');
     div.className = 'screen-item';
-    div.innerHTML = `<span style="color:#555;font-size:14px;">▸</span><input type="text" placeholder="Screen name e.g. Order History" value="${val}" oninput="saveScreens()"/><button class="screen-remove" onclick="this.parentElement.remove();saveScreens()">×</button>`;
+    div.innerHTML = `<span style="color:#555;font-size:14px;">▸</span><input type="text" placeholder="Screen name e.g. Order History" value="${val}" oninput="autoSave()"/><button class="screen-remove" onclick="this.parentElement.remove();autoSave()">×</button>`;
     list.appendChild(div);
   }
 
   function saveScreens() {
+    // Fixed: no recursive autoSave() — callers handle save themselves.
+    // This used to be: collectFields → saveScreens → autoSave → collectFields → ... → stack overflow,
+    // which silently killed every Continue click.
     const inputs = document.querySelectorAll('#screensList input');
     formData.screens_list = Array.from(inputs).map(i => i.value).filter(v => v.trim());
     formData.screens = formData.screens_list.join('\n');
-    autoSave();
   }
 
   // Toggle checkbox
