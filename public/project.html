@@ -145,6 +145,7 @@
           <div class="qrow"><span class="k">Project Total</span><span class="v">${money(p.quote_total)}</span></div>
           <div class="qrow"><span class="k">Deposit (50%) ${depositPaid ? '<span class="paid-pill">Paid</span>' : ''}</span><span class="v">${money(p.quote_deposit)}</span></div>
           <div class="qrow total"><span class="k">Balance Due ${balancePaid ? '<span class="paid-pill">Paid</span>' : (p.balance_due>0?'<span class="due-pill">Due</span>':'')}</span><span class="v">${money(p.balance_due)}</span></div>
+          ${p.quote_monthly > 0 ? `<div class="qrow"><span class="k">Care Plan <span style="font-size:10px;color:#888;">(ongoing)</span></span><span class="v" style="color:var(--accent);">${money(p.quote_monthly)}/mo</span></div>` : ''}
         </div>
         <div class="panel">
           <div class="panel-title">What We're Building</div>

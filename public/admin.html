@@ -193,6 +193,7 @@
       ${total ? `<div class="quote-banner">
         <div class="qb-block"><span class="qb-label">Estimated Quote</span><span class="qb-total">${money(total)}</span></div>
         <div class="qb-block"><span class="qb-label">50% Deposit</span><span class="qb-deposit">${money(deposit)}</span></div>
+        ${d.care_plan ? `<div class="qb-block"><span class="qb-label">Care Plan</span><span class="qb-deposit" style="color:var(--accent);">$199/mo</span></div>` : ''}
         <div class="qb-block"><span class="qb-label">Package</span><span style="font-size:15px;font-weight:700;color:#fff;">${d.package || '—'}</span></div>
       </div>` : ''}
 
@@ -209,6 +210,7 @@
         <div class="detail-card">
           <div class="detail-card-title">Project</div>
           <div class="detail-row"><div class="detail-key">Package</div><div class="detail-val" style="color:#7C3AED;font-weight:700;">${d.package || '—'}</div></div>
+          <div class="detail-row"><div class="detail-key">Care Plan</div><div class="detail-val" style="${d.care_plan ? 'color:#22C55E;font-weight:700;' : ''}">${d.care_plan ? 'Yes — $199/mo' : 'No'}</div></div>
           <div class="detail-row"><div class="detail-key">Budget</div><div class="detail-val">${d.budget || '—'}</div></div>
           <div class="detail-row"><div class="detail-key">Urgency</div><div class="detail-val">${d.urgency || '—'}</div></div>
           <div class="detail-row"><div class="detail-key">Start Date</div><div class="detail-val">${d.start_date || '—'}</div></div>

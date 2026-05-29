@@ -168,7 +168,9 @@ const PRICING = {
     del_maps:      { label: 'Maps / Location',      price: 600 },
     del_analytics: { label: 'Analytics',            price: 500 },
     del_cms:       { label: 'CMS / Content',        price: 1200 }
-  }
+  },
+  // Optional recurring monthly maintenance/upkeep plan (billed separately from the one-time build)
+  carePlan: { label: 'Care Plan', price: 199, desc: 'Managed hosting, uptime monitoring, security patches, bug fixes & priority support. Cancel anytime.' }
 };
 
 function computeQuote(d) {
@@ -183,7 +185,8 @@ function computeQuote(d) {
     }
   });
   const total = base + addonTotal;
-  return { items, total, deposit: Math.round(total * 0.5), isCustom: d.package && d.package.startsWith('Custom') };
+  const monthly = d.care_plan ? PRICING.carePlan.price : 0;
+  return { items, total, deposit: Math.round(total * 0.5), monthly, isCustom: d.package && d.package.startsWith('Custom') };
 }
 
 // Expose pricing to frontend
@@ -290,7 +293,7 @@ ${quoteLines}
   ${''.padEnd(28,'─')} ─────────
   ${'TOTAL'.padEnd(28)} $${quote.total.toLocaleString()}
   ${'50% DEPOSIT TO START'.padEnd(28)} $${quote.deposit.toLocaleString()}
-
+${quote.monthly ? `\nONGOING CARE PLAN\n─────────────────\n  ${'Care Plan'.padEnd(28)} $${quote.monthly.toLocaleString()}/mo\n  Managed hosting, monitoring, security patches, bug fixes & priority support.\n  Billed monthly after launch. Cancel anytime.\n` : ''}
 NOTE: Final apps use the CLIENT'S own Stripe account + webhook keys.
 Arrowtrack Solutions provides and manages all hosting.
 
@@ -485,6 +488,7 @@ app.get('/api/my-projects', requireCustomer, async (req, res) => {
       ref_code: r.ref_code, project_name: r.project_name, company_name: r.company_name,
       status: r.status, created_at: r.created_at,
       quote_total: q.total, quote_deposit: q.deposit, balance_due: Math.max(0, q.total - q.deposit),
+      quote_monthly: q.monthly,
       deposit_paid: !!r.deposit_paid, balance_paid: !!r.balance_paid,
       data: r.data
     };
