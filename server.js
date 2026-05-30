@@ -362,10 +362,16 @@ Arrowtrack Solutions LLC | Carpinteria, CA
 }
 
 // ─── Submit project brief ───────────────────────────────────────
-app.post('/api/submit', async (req, res) => {
+app.post('/api/submit', requireCustomer, async (req, res) => {
   const RESEND_API_KEY = process.env.RESEND_API_KEY;
   const OWNER_EMAIL = process.env.OWNER_EMAIL;
-  const data = req.body;
+  // If the body is empty (submitted from the portal after wizard), pull from the customer's saved draft
+  let data = req.body && Object.keys(req.body).length > 0 ? req.body : {};
+  if (!data.client_email && req.customerEmail) {
+    const drafts = await readDrafts();
+    const draft = drafts[normEmail(req.customerEmail)];
+    if (draft && draft.formData) data = { ...draft.formData, ...data };
+  }
   const ref = genRef();
   data.ref_code = ref;
   const quote = computeQuote(data);
