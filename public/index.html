@@ -327,10 +327,48 @@
     .footer-links a:hover { color: var(--white); }
     .footer-copy { font-size: 13px; color: #444; }
 
+    /* HAMBURGER */
+    .nav-burger {
+      display: none; flex-direction: column; justify-content: center; gap: 5px;
+      width: 36px; height: 36px; cursor: pointer; background: none; border: none; padding: 4px;
+    }
+    .nav-burger span {
+      display: block; width: 22px; height: 2px; background: #fff; border-radius: 2px;
+      transition: transform 0.28s ease, opacity 0.2s ease;
+      transform-origin: center;
+    }
+    .nav-burger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+    .nav-burger.open span:nth-child(2) { opacity: 0; transform: scaleX(0); }
+    .nav-burger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+    /* MOBILE DRAWER */
+    .nav-mobile {
+      display: none; position: fixed; top: 61px; left: 0; right: 0; z-index: 99;
+      background: rgba(10,10,10,0.98); backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      flex-direction: column; padding: 8px 20px 24px;
+      animation: slideDown 0.22s ease;
+    }
+    .nav-mobile.open { display: flex; }
+    @keyframes slideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+    .nav-mobile a {
+      color: #aaa; text-decoration: none; font-size: 16px; font-weight: 500;
+      padding: 14px 0; border-bottom: 1px solid rgba(255,255,255,0.05); transition: color 0.2s;
+    }
+    .nav-mobile a:hover { color: #fff; }
+    .nav-mobile .mob-cta {
+      margin-top: 12px; background: var(--brand); color: #fff !important;
+      text-align: center; padding: 14px; border-radius: 10px;
+      font-weight: 700; border-bottom: none !important; font-size: 15px;
+    }
+    .nav-mobile .mob-cta:hover { background: var(--brand-dark); }
+
     /* MOBILE */
     @media (max-width: 768px) {
       nav { padding: 16px 20px; }
       .nav-links { display: none; }
+      .nav-cta { display: none; }
+      .nav-burger { display: flex; }
       .form-row { grid-template-columns: 1fr; }
       .contact-form { padding: 32px 24px; }
     }
@@ -349,7 +387,20 @@
     <li><a href="/login">Log In</a></li>
   </ul>
   <a href="/build" class="nav-cta">Get a Quote</a>
+  <button class="nav-burger" id="navBurger" onclick="toggleMobileNav()" aria-label="Open menu" aria-expanded="false">
+    <span></span><span></span><span></span>
+  </button>
 </nav>
+
+<!-- MOBILE DRAWER -->
+<div class="nav-mobile" id="navMobile">
+  <a href="#portfolio" onclick="closeMobileNav()">Portfolio</a>
+  <a href="#packages" onclick="closeMobileNav()">Packages</a>
+  <a href="#process" onclick="closeMobileNav()">Process</a>
+  <a href="#contact" onclick="closeMobileNav()">Contact</a>
+  <a href="/login" onclick="closeMobileNav()">Log In</a>
+  <a href="/build" class="mob-cta">Get a Quote →</a>
+</div>
 
 <!-- HERO -->
 <section class="hero">
@@ -679,6 +730,32 @@
   const observer = new IntersectionObserver((entries) => {
     entries.forEach(e => { if(e.isIntersecting) e.target.style.opacity = 1; });
   }, { threshold: 0.1 });
+
+  // ── Mobile nav ──────────────────────────────────────────────────
+  function toggleMobileNav() {
+    const menu   = document.getElementById('navMobile');
+    const burger = document.getElementById('navBurger');
+    const isOpen = menu.classList.toggle('open');
+    burger.classList.toggle('open', isOpen);
+    burger.setAttribute('aria-expanded', isOpen);
+    burger.setAttribute('aria-label', isOpen ? 'Close menu' : 'Open menu');
+  }
+  function closeMobileNav() {
+    document.getElementById('navMobile').classList.remove('open');
+    const burger = document.getElementById('navBurger');
+    burger.classList.remove('open');
+    burger.setAttribute('aria-expanded', 'false');
+    burger.setAttribute('aria-label', 'Open menu');
+  }
+  // Close when tapping outside the drawer
+  document.addEventListener('click', function(e) {
+    const menu = document.getElementById('navMobile');
+    if (menu.classList.contains('open') &&
+        !menu.contains(e.target) &&
+        !document.getElementById('navBurger').contains(e.target)) {
+      closeMobileNav();
+    }
+  });
 </script>
 
 </body>
