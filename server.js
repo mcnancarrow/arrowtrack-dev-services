@@ -8,8 +8,8 @@ const { deployProject, redeployToNetlify, pushToGitHub, pollDeploy, takeScreensh
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '25mb' })); // 25mb to allow base64 image/PDF uploads for content extraction
+app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
 // ─── Minimal cookie parser (no extra deps) ──────────────────────
 app.use((req, res, next) => {
@@ -1086,6 +1086,52 @@ app.post('/api/draft/save', requireCustomer, async (req, res) => {
   };
   await writeDrafts(drafts);
   res.json({ success: true, last_saved_at: drafts[req.customerEmail].last_saved_at });
+});
+
+// ─── Content extraction: read uploaded images/PDFs into usable text ──────────
+// Lets customers upload photos/docs (menus, product lists, brochures, screenshots)
+// on the wizard; Claude vision transcribes them into clean text for their content field.
+app.post('/api/extract-content', requireCustomer, async (req, res) => {
+  if (!process.env.ANTHROPIC_API_KEY) return res.status(500).json({ error: 'AI not configured on this server.' });
+  const files = Array.isArray(req.body.files) ? req.body.files : [];
+  if (files.length === 0) return res.status(400).json({ error: 'No files provided.' });
+
+  try {
+    const Anthropic = require('@anthropic-ai/sdk');
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+    const blocks = [];
+    files.slice(0, 8).forEach(f => {
+      if (!f || !f.data) return;
+      const mt = f.media_type || 'image/png';
+      if (mt === 'application/pdf') {
+        blocks.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: f.data } });
+      } else {
+        blocks.push({ type: 'image', source: { type: 'base64', media_type: mt, data: f.data } });
+      }
+    });
+    if (blocks.length === 0) return res.status(400).json({ error: 'No readable files.' });
+
+    blocks.push({ type: 'text', text:
+      'Transcribe ALL real, usable business content from these files into clean, organized plain text. ' +
+      'Include every item, name, description, price, hour, contact detail, and any body copy exactly as written. ' +
+      'Preserve lists and structure (use simple line breaks and dashes). ' +
+      'Do NOT add commentary, headings you invented, or placeholder text — only the actual content found. ' +
+      'If a file is unreadable, skip it silently.' });
+
+    const response = await client.messages.create({
+      model: 'claude-sonnet-4-5',
+      max_tokens: 4000,
+      messages: [{ role: 'user', content: blocks }],
+    });
+
+    const text = (response.content.find(b => b.type === 'text') || {}).text || '';
+    if (!text.trim()) return res.status(422).json({ error: 'Could not read any content from those files.' });
+    res.json({ content: text.trim() });
+  } catch (err) {
+    console.error('[extract-content]', err.message);
+    res.status(500).json({ error: 'Could not read the files. Please paste your content manually.' });
+  }
 });
 
 app.post('/api/logout', (req, res) => { clearSessionCookie(res); res.json({ success: true }); });

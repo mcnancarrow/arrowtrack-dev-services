@@ -86,9 +86,16 @@ function stepPrompt(step, d, existing) {
   // Restaurant detection + menu content
   const isRestaurant = !!(d.industry_preset === 'restaurant' ||
     (d.business_type || '').toLowerCase().match(/restaurant|food service|café|cafe|empanada|pizza|sushi|diner|bistro|bar & grill|food truck/));
-  const menuContent = (d.menu_content || '').trim();
+  // Universal content the customer provided (pasted text or transcribed uploads).
+  // content_material is the new general field; menu_content is the legacy restaurant field.
+  const providedContent = (d.content_material || d.menu_content || '').trim();
+  const menuContent = providedContent;
   const menuCtx = (isRestaurant && menuContent)
     ? `\n\nMENU / PRODUCT LIST (use EXACT items, descriptions, prices — never invent or change items):\n${menuContent}`
+    : '';
+  // For ALL industries: feed the real content so the AI writes specifics, not filler.
+  const contentCtx = (!isRestaurant && providedContent)
+    ? `\n\nPROVIDED CONTENT (the business gave us this real material — use it verbatim where relevant; weave their actual products/services/copy/pricing into the pages; NEVER replace it with generic placeholder text):\n${providedContent}`
     : '';
   const bizPhone = d.phone || d.business_phone || '';
 
@@ -144,7 +151,7 @@ Generate these files:
 5. app.js — Shared interactivity: mobile nav toggle, smooth scroll, contact form validation + fake submit success
 
 IMPORTANT: Every page must link <link rel="stylesheet" href="styles.css"> and <script src="app.js"></script>.
-Nav must be identical across all pages. Make EVERY piece of content specific to this business.${menuCtx}${isRestaurant ? `\n\nIMPORTANT: This is a restaurant/food business. The nav must include links to menu.html, order.html, takeout.html. Make index.html feel warm and inviting — not tech-flavoured.` : ''}`,
+Nav must be identical across all pages. Make EVERY piece of content specific to this business.${menuCtx}${contentCtx}${isRestaurant ? `\n\nIMPORTANT: This is a restaurant/food business. The nav must include links to menu.html, order.html, takeout.html. Make index.html feel warm and inviting — not tech-flavoured.` : ''}`,
 
     2: `Update the app for these platform and deliverable requirements.
 
@@ -254,7 +261,7 @@ Update ALL HTML files:
 - Make all CTAs link to the real email (mailto:) if no website yet
 - Ensure every page feels finished, consistent, ready to show to this client
 
-Return ALL HTML files (index.html${isRestaurant ? ', menu.html, order.html, takeout.html' : ', contact.html, terms.html, and any others'}).${existingCtx}`,
+Return ALL HTML files (index.html${isRestaurant ? ', menu.html, order.html, takeout.html' : ', contact.html, terms.html, and any others'}).${contentCtx}${existingCtx}`,
   };
 
   return prompts[step] || `Step ${step} — current data: ${JSON.stringify(d)}${existingCtx}`;
