@@ -573,6 +573,51 @@ app.post('/admin/api/submissions/:id/send-payment-link', async (req, res) => {
 });
 
 // ─── Customer auth API ──────────────────────────────────────────
+app.post('/api/forgot-password', async (req, res) => {
+  const email = normEmail(req.body.email);
+  // Always return 200 — never reveal whether the email exists.
+  res.json({ success: true });
+  if (!email) return;
+  try {
+    const accts = await readAccounts();
+    const acct = accts.find(a => a.email === email);
+    if (!acct) return; // silent — no account for this email
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiry = Date.now() + 60 * 60 * 1000; // 1 hour
+    acct.reset_token = token;
+    acct.reset_token_expiry = expiry;
+    await writeAccounts(accts);
+    const resetUrl = `${process.env.APP_URL || `https://${req.get('host')}`}/reset-password?token=${token}`;
+    await sendEmail(
+      email,
+      'Reset your Arrowtrack Forge password',
+      emailShell('Reset Your Password',
+        `<p style="color:#aaa;margin-bottom:20px;">We received a request to reset the password for your account.</p>
+         <p style="margin:26px 0;"><a href="${resetUrl}" style="background:#7C3AED;color:#fff;text-decoration:none;padding:14px 28px;border-radius:8px;font-weight:700;display:inline-block;">Reset My Password →</a></p>
+         <p style="color:#777;font-size:13px;">This link expires in 1 hour. If you didn't request this, you can ignore this email — your password won't change.</p>`,
+        'reset')
+    );
+  } catch (err) { console.error('forgot-password error:', err); }
+});
+
+app.post('/api/reset-password', async (req, res) => {
+  const { token, password } = req.body;
+  if (!token || !password || password.length < 6) {
+    return res.status(400).json({ error: 'Invalid request.' });
+  }
+  try {
+    const accts = await readAccounts();
+    const acct = accts.find(a => a.reset_token === token);
+    if (!acct) return res.status(400).json({ error: 'Reset link is invalid or has already been used.' });
+    if (Date.now() > acct.reset_token_expiry) return res.status(400).json({ error: 'Reset link has expired. Please request a new one.' });
+    acct.password = hashPassword(password);
+    delete acct.reset_token;
+    delete acct.reset_token_expiry;
+    await writeAccounts(accts);
+    res.json({ success: true });
+  } catch (err) { console.error('reset-password error:', err); res.status(500).json({ error: 'Server error. Please try again.' }); }
+});
+
 app.post('/api/login', async (req, res) => {
   const email = normEmail(req.body.email);
   const acct = (await readAccounts()).find(a => a.email === email);
@@ -764,6 +809,7 @@ app.post('/api/pay-deposit', requireCustomer, async (req, res) => {
 // ─── Routes ─────────────────────────────────────────────────────
 app.get('/build', (req, res) => res.sendFile(path.join(__dirname, 'public', 'build.html')));
 app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
+app.get('/reset-password', (req, res) => res.sendFile(path.join(__dirname, 'public', 'reset.html')));
 app.get('/project', (req, res) => res.sendFile(path.join(__dirname, 'public', 'project.html')));
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
