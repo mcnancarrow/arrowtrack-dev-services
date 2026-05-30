@@ -955,7 +955,7 @@
   function initScreens() {
     const list = document.getElementById('screensList');
     list.innerHTML = '';
-    let saved = formData.screens_list || defaultScreens;
+    let saved = (formData.screens_list && formData.screens_list.length > 0) ? formData.screens_list : defaultScreens;
     saved.forEach(s => addScreen(s));
   }
 
