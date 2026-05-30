@@ -232,10 +232,21 @@ const PRICING = {
   carePlan: { label: 'Care Plan', price: 199, desc: 'Managed hosting, uptime monitoring, security patches, bug fixes & priority support. Cancel anytime.' }
 };
 
+// Resolve a package value (full label, short name, or with $) to its canonical key.
+function resolvePackageKey(value) {
+  if (!value) return null;
+  if (PRICING.packages[value] != null) return value; // exact full-label match
+  const short = String(value).split('—')[0].trim().toLowerCase();
+  return Object.keys(PRICING.packages).find(
+    k => k.split('—')[0].trim().toLowerCase() === short
+  ) || null;
+}
+
 function computeQuote(d) {
-  const base = PRICING.packages[d.package] || 0;
+  const pkgKey = resolvePackageKey(d.package);
+  const base = pkgKey ? PRICING.packages[pkgKey] : 0;
   const items = [];
-  if (d.package) items.push({ label: d.package.split(' — ')[0] + ' Package', price: base });
+  if (pkgKey) items.push({ label: pkgKey.split(' — ')[0] + ' Package', price: base });
   let addonTotal = 0;
   Object.keys(PRICING.addons).forEach(key => {
     if (d[key]) {
@@ -245,7 +256,7 @@ function computeQuote(d) {
   });
   const total = base + addonTotal;
   const monthly = d.care_plan ? PRICING.carePlan.price : 0;
-  return { items, total, deposit: Math.round(total * 0.5), monthly, isCustom: d.package && d.package.startsWith('Custom') };
+  return { items, total, deposit: Math.round(total * 0.5), monthly, isCustom: !!(pkgKey && pkgKey.startsWith('Custom')) };
 }
 
 // Expose pricing to frontend
