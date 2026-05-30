@@ -19,18 +19,27 @@ const STEP_LABELS = {
 
 // ─── System prompt ──────────────────────────────────────────────────────────
 function systemPrompt() {
-  return `You are an expert web developer generating production-quality web apps for small businesses via Arrowtrack Forge.
+  return `You are a senior product designer AND front-end engineer generating award-winning web-app demos for small businesses via Arrowtrack Forge. Your output is the thing that convinces a client to spend thousands — it must look like a top agency built it.
 
-Rules:
-- Generate clean, modern, professional HTML/CSS/JavaScript
-- NEVER use placeholder text like [INSERT HERE] or TODO — always write real, specific content
-- Make the app look like a real, professionally designed product worth $3,500+
-- All styles go in styles.css — no inline styles except for dynamic values
-- app.js handles all interactivity
-- index.html is the main entry point
-- Content must be 100% relevant to the specific business described
-- Dark theme default: background #0D0D0D, brand purple #7C3AED, accent green #22C55E, font Inter
-- When updating existing files: preserve what's good, only change what's needed for this step`;
+OUTPUT RULES:
+- Clean, modern, semantic HTML5 + CSS3 + vanilla JavaScript. No frameworks. No external images or CDNs except Google Fonts (the environment has no image assets — build all visuals with CSS gradients, inline SVG, and tasteful emoji).
+- All styles go in styles.css. All interactivity in app.js. index.html is the entry point.
+- NEVER use placeholder text ([INSERT], TODO, Lorem ipsum). Write real, specific, on-brand copy for THIS business.
+- When updating files: preserve what already works and keep the design language identical across every page. Only change what the step requires.
+
+DESIGN LANGUAGE — make it genuinely impressive ("wow"):
+- Drive everything from a design system in :root — CSS custom properties for colors, spacing, radius, shadows, and a FLUID type scale using clamp().
+- Dark theme by default: base #0D0D0D, elevated surfaces #15151B / #1C1C24, brand #7C3AED, accent #22C55E, muted text ~#9AA0AC, hairline borders rgba(255,255,255,0.06).
+- Depth & polish: soft layered shadows, 1px translucent borders, 14–20px radii, and glassmorphism (backdrop-filter: blur) on the sticky nav and key cards.
+- Hero that lands: near-full-viewport, a rich GRADIENT MESH background (layered radial gradients in brand + accent at low opacity over the dark base, optional subtle grid/noise), an eyebrow label, an OVERSIZED headline (clamp up to ~64px, tight line-height) with ONE gradient-filled keyword, a punchy sub-headline, two CTAs (primary gradient button + ghost button), and a small trust line.
+- Premium typography: load a modern Google Font (Inter / Sora / Space Grotesk; Poppins if "friendly" is requested). Big confident headings, uppercase letter-spaced eyebrows/labels, body line-height 1.6–1.7.
+- Buttons: gradient fill, bold, pill or 12px radius, hover lift (translateY) + soft glow shadow, smooth transitions.
+- Sections & cards: centered max-width container (~1100–1200px), generous whitespace, consistent vertical rhythm, feature cards with an inline-SVG/emoji icon + hover lift.
+- Motion (subtle, never gaudy): scroll-reveal entrance animations (fade + slight translateY) via IntersectionObserver in app.js; hover micro-interactions; smooth-scroll for anchor links.
+- Mobile-first and fully responsive, real focus states, a working mobile nav toggle, readable contrast.
+- Every page shares the SAME nav, footer, and stylesheet so the product feels cohesive and finished.
+
+Target the quality bar of a top Webflow/Framer template — clearly worth $3,500+.`;
 }
 
 // ─── Per-step prompts ────────────────────────────────────────────────────────
@@ -38,10 +47,12 @@ function stepPrompt(step, d, existing) {
   const hasExisting = existing && Object.keys(existing).length > 0;
 
   // Truncate existing files to stay within context window
+  // Show a generous slice of each existing file so update steps preserve the
+  // full design system instead of regenerating a plainer version from a stub.
   const existingCtx = hasExisting
-    ? '\n\nEXISTING FILES (update these, do not start from scratch):\n' +
+    ? '\n\nEXISTING FILES (update these, do not start from scratch — keep the existing design language intact):\n' +
       Object.entries(existing)
-        .map(([name, content]) => `\n=== ${name} ===\n${content.slice(0, 3000)}`)
+        .map(([name, content]) => `\n=== ${name} ===\n${content.slice(0, 8000)}`)
         .join('\n')
     : '';
 
@@ -134,7 +145,7 @@ function stepPrompt(step, d, existing) {
     .join(' | ');
 
   const prompts = {
-    1: `Generate a complete, professional multi-page web app for this business.
+    1: `Generate a complete, PREMIUM multi-page web app for this business. This is a paid demo the client will judge on first impression — make it look like a top-tier agency built it.
 
 BUSINESS:
 - Company: ${d.company_name || 'Company'}
@@ -144,14 +155,22 @@ BUSINESS:
 - Target Users: ${d.target_users || 'General users'}
 
 Generate these files:
-1. index.html — Home/landing page: sticky nav with links to contact.html and terms.html, hero (bold headline + CTA), 3-feature section, how-it-works (3 steps), testimonials or stats, final CTA, footer
-2. contact.html — Contact page: same nav + footer as index.html, contact form (name, email, phone, message fields), submit button, business contact details
-3. terms.html — Terms & Privacy page: same nav + footer, Terms of Service section, Privacy Policy section, all content relevant to the business
-4. styles.css — ONE shared stylesheet used by all pages: dark theme (#0D0D0D bg), Inter font via Google Fonts, responsive, smooth animations, mobile-first. All pages must look consistent.
-5. app.js — Shared interactivity: mobile nav toggle, smooth scroll, contact form validation + fake submit success
+1. index.html — a rich, scroll-worthy landing page with these sections IN ORDER:
+   - Sticky glassmorphic nav (backdrop blur): wordmark left, page links + a primary CTA button right, working mobile hamburger.
+   - Hero: gradient-mesh background (brand + accent radial gradients at low opacity over the dark base), an eyebrow label, an OVERSIZED headline with ONE gradient-filled keyword, a punchy sub-headline, two CTAs (primary gradient + ghost), and a trust line of 3 quick stats/badges.
+   - Social-proof stats band: 3–4 big numbers with labels.
+   - Features: 3–4 cards in a responsive grid, each with an inline-SVG or emoji icon, title, and specific benefit copy, with a hover lift.
+   - How it works: 3 numbered steps with a connecting line.
+   - Highlight/benefits block: alternating text + a CSS-built visual panel (gradient/mockup, no external image).
+   - Testimonials: 2–3 quote cards with names/roles believable for this business.
+   - Final CTA band: bold gradient panel with headline + button.
+   - Rich footer: brand blurb, link columns, contact line.
+2. contact.html — same nav + footer, a polished contact form (name, email, phone, message) on a card, plus business contact details and hours.
+3. terms.html — same nav + footer, well-formatted Terms of Service + Privacy Policy sections relevant to the business.
+4. styles.css — ONE shared stylesheet implementing the full DESIGN LANGUAGE from your system instructions: :root design tokens, fluid clamp() type scale, gradient hero mesh, glass nav, gradient buttons with hover glow, card depth, .reveal scroll-animation classes, fully responsive + mobile nav styles.
+5. app.js — shared interactivity: mobile nav toggle, smooth scroll for anchors, contact-form validation + fake success state, and SCROLL-REVEAL entrance animations via IntersectionObserver (elements with class "reveal" fade + slide in as they enter the viewport).
 
-IMPORTANT: Every page must link <link rel="stylesheet" href="styles.css"> and <script src="app.js"></script>.
-Nav must be identical across all pages. Make EVERY piece of content specific to this business.${menuCtx}${contentCtx}${isRestaurant ? `\n\nIMPORTANT: This is a restaurant/food business. The nav must include links to menu.html, order.html, takeout.html. Make index.html feel warm and inviting — not tech-flavoured.` : ''}`,
+IMPORTANT: Every page must <link rel="stylesheet" href="styles.css"> and <script src="app.js" defer></script>. Nav and footer must be IDENTICAL across all pages. Make EVERY piece of copy specific to this business — no filler.${menuCtx}${contentCtx}${isRestaurant ? `\n\nIMPORTANT: This is a restaurant/food business. Add nav links to menu.html, order.html, takeout.html. Make the hero warm, appetising and food-forward — not tech-flavoured.` : ''}`,
 
     2: `Update the app for these platform and deliverable requirements.
 
@@ -277,7 +296,7 @@ async function generateStep(stepNumber, formData, existingFiles = {}) {
 
   const response = await client.messages.create({
     model: 'claude-sonnet-4-5',
-    max_tokens: 16000,
+    max_tokens: 24000,
     system: systemPrompt(),
     tools: [{
       name: 'deliver_files',
