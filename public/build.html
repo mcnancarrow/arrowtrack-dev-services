@@ -57,6 +57,24 @@
     .preview-progress { height: 2px; background: rgba(255,255,255,0.04); flex-shrink: 0; }
     .preview-progress-fill { height: 100%; background: linear-gradient(90deg, var(--brand), var(--accent)); width: 0%; transition: width 0.6s ease; }
 
+    /* QUICK-START PRESET BAR */
+    .preset-bar { background: var(--dark2); border-bottom: 1px solid rgba(255,255,255,0.06); padding: 16px 40px; transition: all 0.3s ease; overflow: hidden; }
+    .preset-bar.collapsed { padding: 0 40px; max-height: 0; border-bottom: none; }
+    .preset-bar-label { font-size: 11px; font-weight: 700; color: #555; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; }
+    .preset-cards { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .preset-card { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09); border-radius: 10px; padding: 9px 14px; cursor: pointer; font-size: 13px; font-weight: 600; color: #aaa; font-family: inherit; transition: all 0.18s; white-space: nowrap; }
+    .preset-card:hover { background: rgba(255,255,255,0.08); color: #fff; border-color: rgba(255,255,255,0.2); }
+    .preset-card.selected { background: rgba(124,58,237,0.15); border-color: rgba(124,58,237,0.5); color: #c4b5fd; }
+    .preset-card .pc-icon { font-size: 18px; line-height: 1; }
+    .preset-skip { font-size: 12px; color: #444; background: none; border: none; cursor: pointer; font-family: inherit; margin-left: auto; text-decoration: underline; text-underline-offset: 3px; }
+    .preset-skip:hover { color: #888; }
+    @media (max-width: 768px) { .preset-bar { padding: 12px 16px; } .preset-bar.collapsed { padding: 0 16px; } }
+
+    /* MENU CONTENT FIELD */
+    .menu-upload-group { background: rgba(34,197,94,0.04); border: 1px solid rgba(34,197,94,0.15); border-radius: 12px; padding: 20px; margin-top: 8px; }
+    .menu-upload-group label { color: var(--accent) !important; }
+    .menu-upload-group textarea { min-height: 160px; font-family: monospace; font-size: 13px; }
+
     /* PROGRESS */
     .progress-wrap { background: var(--dark2); border-bottom: 1px solid rgba(255,255,255,0.06); padding: 14px 40px; }
     .progress-inner { max-width: 760px; margin: 0 auto; }
@@ -384,6 +402,29 @@
   </div>
 </div>
 
+<!-- QUICK-START PRESET BAR -->
+<div class="preset-bar" id="presetBar">
+  <div class="preset-bar-label">Quick Start — what type of business?</div>
+  <div class="preset-cards">
+    <button class="preset-card" data-preset="restaurant" onclick="applyPreset('restaurant',this)">
+      <span class="pc-icon">🍽️</span> Restaurant / Food
+    </button>
+    <button class="preset-card" data-preset="retail" onclick="applyPreset('retail',this)">
+      <span class="pc-icon">🛍️</span> Retail / Shop
+    </button>
+    <button class="preset-card" data-preset="service" onclick="applyPreset('service',this)">
+      <span class="pc-icon">💼</span> Service Business
+    </button>
+    <button class="preset-card" data-preset="health" onclick="applyPreset('health',this)">
+      <span class="pc-icon">🏥</span> Health & Wellness
+    </button>
+    <button class="preset-card" data-preset="tech" onclick="applyPreset('tech',this)">
+      <span class="pc-icon">⚡</span> SaaS / Tech
+    </button>
+    <button class="preset-skip" onclick="collapsePresetBar()">Skip →</button>
+  </div>
+</div>
+
 <main id="formWrap">
 
   <!-- STEP 1: PROJECT OVERVIEW -->
@@ -429,6 +470,19 @@
     <div class="field-group">
       <label>Who are your target users?</label>
       <input type="text" id="target_users" placeholder="e.g. Restaurant customers aged 25–45 who order online frequently"/>
+    </div>
+    <div class="field-group" id="bizPhoneGroup" style="display:none;">
+      <label>Business Phone</label>
+      <input type="tel" id="business_phone" placeholder="e.g. 303-478-9271" autocomplete="tel"/>
+    </div>
+    <div class="field-group menu-upload-group" id="menuContentGroup" style="display:none;">
+      <label>📋 Your Menu <span style="font-weight:400;color:#6b9;font-size:12px;">— paste text, describe items, or list name + price</span></label>
+      <textarea id="menu_content" placeholder="e.g.
+1. Margherita $12 — fresh tomato, mozzarella, basil
+2. Pepperoni $14 — classic red sauce, mozzarella, pepperoni
+...
+Add-ons: Garlic bread $4, Extra sauce $1"></textarea>
+      <div style="font-size:12px;color:#6b9;margin-top:8px;">✓ The AI will use your exact items — no generic placeholders</div>
     </div>
   </div>
 
@@ -898,6 +952,84 @@
 </div><!-- end .forge-layout -->
 
 <script>
+  // ── Industry presets ────────────────────────────────────────────
+  const PRESETS = {
+    restaurant: {
+      business_type: 'Restaurant / Food Service',
+      screens_list: ['Home', 'Menu', 'Order', 'Takeout', 'Contact', 'Terms & Privacy'],
+      platform_web: true, del_email: true,
+      industry_preset: 'restaurant',
+      business_goal: 'Let customers browse our full menu, place table orders digitally, and arrange frozen takeout pickup — all from their phone.',
+      target_users: 'Dine-in customers at their table, walk-in customers, takeout shoppers',
+      showMenu: true,
+    },
+    retail: {
+      business_type: 'Retail / E-commerce',
+      screens_list: ['Home', 'Shop', 'About', 'Contact', 'Terms & Privacy'],
+      platform_web: true, del_payments: true,
+      industry_preset: 'retail',
+      business_goal: 'Sell our products online with a clean storefront, product pages, and checkout.',
+      target_users: 'Online shoppers looking for our products',
+    },
+    service: {
+      business_type: 'Professional Services',
+      screens_list: ['Home', 'Services', 'About', 'Contact', 'Terms & Privacy'],
+      platform_web: true, del_email: true,
+      industry_preset: 'service',
+      business_goal: 'Showcase our services, build trust with prospective clients, and capture leads via a contact form.',
+      target_users: 'Businesses and individuals looking for our services',
+    },
+    health: {
+      business_type: 'Healthcare / Wellness',
+      screens_list: ['Home', 'Services', 'Booking', 'About', 'Contact', 'Terms & Privacy'],
+      platform_web: true, del_email: true,
+      industry_preset: 'health',
+      business_goal: 'Allow clients to browse wellness services, read about our approach, and book appointments online.',
+      target_users: 'Health-conscious individuals looking for wellness services',
+    },
+    tech: {
+      business_type: 'SaaS / Technology',
+      screens_list: ['Home', 'Pricing', 'About', 'Contact', 'Terms & Privacy'],
+      platform_web: true, del_ai: true,
+      industry_preset: 'tech',
+      business_goal: 'Launch a professional SaaS product with a compelling landing page, pricing tiers, and sign-up flow.',
+      target_users: 'Tech-savvy professionals and businesses looking for software solutions',
+    },
+  };
+
+  function applyPreset(type, btn) {
+    const preset = PRESETS[type];
+    if (!preset) return;
+    // Apply to formData
+    Object.keys(preset).forEach(k => {
+      if (k === 'showMenu') return;
+      formData[k] = preset[k];
+    });
+    // Sync checkbox fields
+    ['platform_web','platform_ios','platform_android','del_admin','del_payments','del_ai','del_push','del_email','del_maps','del_analytics','del_cms'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.checked = !!formData[id];
+    });
+    // Sync text/select fields
+    ['business_type','business_goal','target_users'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el && formData[id]) el.value = formData[id];
+    });
+    // Show/hide restaurant extras
+    const showMenu = !!preset.showMenu;
+    document.getElementById('menuContentGroup').style.display = showMenu ? 'block' : 'none';
+    document.getElementById('bizPhoneGroup').style.display = showMenu ? 'block' : 'none';
+    // Mark selected card
+    document.querySelectorAll('.preset-card').forEach(b => b.classList.remove('selected'));
+    if (btn) btn.classList.add('selected');
+    autoSave();
+    collapsePresetBar();
+  }
+
+  function collapsePresetBar() {
+    document.getElementById('presetBar').classList.add('collapsed');
+  }
+
   let currentStep = 1;
   const TOTAL_STEPS = 8;
   let formData = {};

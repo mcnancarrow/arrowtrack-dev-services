@@ -83,6 +83,15 @@ function stepPrompt(step, d, existing) {
     : Array.isArray(d.screens) ? d.screens.filter(Boolean)
     : (d.screens ? [d.screens] : ['Home', 'Contact', 'Terms & Privacy']);
 
+  // Restaurant detection + menu content
+  const isRestaurant = !!(d.industry_preset === 'restaurant' ||
+    (d.business_type || '').toLowerCase().match(/restaurant|food service|café|cafe|empanada|pizza|sushi|diner|bistro|bar & grill|food truck/));
+  const menuContent = (d.menu_content || '').trim();
+  const menuCtx = (isRestaurant && menuContent)
+    ? `\n\nMENU / PRODUCT LIST (use EXACT items, descriptions, prices — never invent or change items):\n${menuContent}`
+    : '';
+  const bizPhone = d.phone || d.business_phone || '';
+
   // Map screen names → filenames
   function screenToFile(name) {
     const map = {
@@ -135,7 +144,7 @@ Generate these files:
 5. app.js — Shared interactivity: mobile nav toggle, smooth scroll, contact form validation + fake submit success
 
 IMPORTANT: Every page must link <link rel="stylesheet" href="styles.css"> and <script src="app.js"></script>.
-Nav must be identical across all pages. Make EVERY piece of content specific to this business.`,
+Nav must be identical across all pages. Make EVERY piece of content specific to this business.${menuCtx}${isRestaurant ? `\n\nIMPORTANT: This is a restaurant/food business. The nav must include links to menu.html, order.html, takeout.html. Make index.html feel warm and inviting — not tech-flavoured.` : ''}`,
 
     2: `Update the app for these platform and deliverable requirements.
 
@@ -157,24 +166,59 @@ ${features ? `Add UI elements for: ${features}
 - For Roles: mention user types in the hero or features
 Return only files that change.` : 'No features selected yet — return existing files unchanged.'}${existingCtx}`,
 
-    4: `Create or update individual HTML pages for each screen the client needs.
+    4: isRestaurant ? `Generate the restaurant pages for this food business.
 
-PAGES NEEDED:
-${pageList}
+RESTAURANT: ${d.company_name || 'Restaurant'}
+PHONE: ${bizPhone || 'Not provided'}
+${menuContent ? `\nFULL MENU (use EXACTLY — do not change names, descriptions, or prices):\n${menuContent}` : ''}
 
+Generate these files:
+
+1. menu.html — Full menu display
+- Same sticky nav + footer as index.html. Link stylesheet + app.js.
+- Hero: restaurant name, "— Empanadas Argentinas —" style subtitle, price per item
+- Numbered menu cards in a responsive grid: bold number badge, item name (bold), description, price tag
+- Badges: green "🌱 VEGAN" for vegan items, purple "✨ NEW" for new items
+- Add-ons section: chimichurri / extras at bottom
+- "Order Now →" CTA linking to order.html
+
+2. order.html — Interactive digital order form
+- Same nav + footer. Link stylesheet + app.js.
+- Intro: "Order at your table or counter — we'll bring it right to you."
+- Compact order table — one row per menu item: [#] [Name] [qty: <input type=number min=0 value=0 class=qty-input data-price=7 data-name="...">]
+- Add-ons section: chimichurri radio: None / 4oz +$6 / 8oz +$12
+- Table/seat field: <input> "Table # or Counter"
+- Special requests: <textarea>
+- Live order summary box (updates as qty changes): lists selected items + running $total
+- "Place Order" button: shows a confirmation modal/div with the full order details
+- Subtext: "Or text your order to ${bizPhone || '[phone]'}"
+- app.js must handle qty change → recalculate total → update summary div
+
+3. takeout.html — Frozen / pickup order form
+- Same nav + footer. Link stylesheet + app.js.
+- Headline: "Frozen Empanadas for Takeout"
+- Subtitle: "Take our empanadas home — ready to bake in 18 minutes at 375°F"
+- Same item list with qty inputs
+- Customer name, phone number fields
+- Pickup date input + preferred time (select: Morning / Afternoon / Evening)
+- Special requests textarea
+- Submit button → thank you confirmation message with order summary
+
+Update index.html nav to ensure it has links to menu.html and order.html.
+Update app.js with the qty-change event listeners and total calculator.
+
+Return ALL of: menu.html, order.html, takeout.html, updated index.html (nav only if needed), updated app.js.${existingCtx}`
+
+: /* default non-restaurant step 4 */
+`Update the app to match these screens/pages.
+
+SCREENS NEEDED: ${screensList.join(', ') || 'Not specified yet'}
 USER FLOWS: ${d.user_flows || 'Not specified'}
 
-Rules:
-- index.html = Home page (update if it exists, create if not)
-- contact.html = Contact page with a contact form (name, email, message), submit button, and business contact details
-- terms.html = Terms & Privacy page with Terms of Service + Privacy Policy relevant to this business
-- For any other page: create a full page matching the screen name, relevant content for the business
-- ALL pages MUST share the same nav: ${navLinks}
-- ALL pages MUST use <link rel="stylesheet" href="styles.css"> and <script src="app.js"></script>
-- Nav links must correctly point to the right filename (e.g. href="contact.html")
-- Footer must be identical across all pages
-
-Return ALL page files (index.html, contact.html, terms.html, and any extras). Return styles.css only if nav/footer styles need updating.${existingCtx}`,
+${screensList.length > 0 ? `Create a separate HTML file for each screen listed (except Home = index.html which already exists).
+Each file must: use the same nav, same footer, link styles.css and app.js.
+Filename mapping: About → about.html, Contact → contact.html, Terms & Privacy → terms.html, Pricing → pricing.html, etc.
+Nav links must point to correct filenames. Return ALL page files.` : 'No screens listed yet — return existing files unchanged.'}${existingCtx}`,
 
     5: `Apply this exact design system to the app.
 
@@ -210,7 +254,7 @@ Update ALL HTML files:
 - Make all CTAs link to the real email (mailto:) if no website yet
 - Ensure every page feels finished, consistent, ready to show to this client
 
-Return ALL HTML files that exist (index.html, contact.html, terms.html, and any others).${existingCtx}`,
+Return ALL HTML files (index.html${isRestaurant ? ', menu.html, order.html, takeout.html' : ', contact.html, terms.html, and any others'}).${existingCtx}`,
   };
 
   return prompts[step] || `Step ${step} — current data: ${JSON.stringify(d)}${existingCtx}`;
