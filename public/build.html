@@ -272,9 +272,79 @@
 
     /* DIVIDER */
     .divider { height: 1px; background: rgba(255,255,255,0.06); margin: 32px 0; }
+
+    /* GATE MODAL */
+    .gate-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(6px); z-index: 500; display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .gate-modal { background: var(--dark2); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; padding: 40px; max-width: 420px; width: 100%; box-shadow: 0 40px 100px rgba(0,0,0,0.6); animation: fadeIn 0.25s ease; }
+    .gate-eyebrow { font-size: 11px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; }
+    .gate-title { font-size: 24px; font-weight: 800; line-height: 1.2; margin-bottom: 8px; letter-spacing: -0.02em; }
+    .gate-title span { color: var(--brand); }
+    .gate-sub { font-size: 14px; color: var(--gray); margin-bottom: 24px; line-height: 1.55; }
+    .gate-tabs { display: flex; gap: 4px; background: rgba(255,255,255,0.04); border-radius: 8px; padding: 4px; margin-bottom: 22px; }
+    .gate-tab { flex: 1; padding: 8px; font-size: 13px; font-weight: 600; text-align: center; cursor: pointer; border-radius: 6px; color: var(--gray); transition: all 0.2s; border: none; background: none; font-family: inherit; }
+    .gate-tab.active { background: var(--brand); color: #fff; }
+    .gate-field { margin-bottom: 14px; }
+    .gate-field label { display: block; font-size: 12px; font-weight: 600; color: #aaa; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .gate-field input { width: 100%; background: var(--dark); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 12px 14px; color: #fff; font-size: 14px; font-family: inherit; outline: none; transition: border-color 0.2s; box-sizing: border-box; }
+    .gate-field input:focus { border-color: var(--brand); }
+    .gate-btn { width: 100%; background: var(--brand); color: #fff; border: none; border-radius: 10px; padding: 14px; font-size: 15px; font-weight: 700; cursor: pointer; margin-top: 4px; font-family: inherit; transition: background 0.2s; }
+    .gate-btn:hover { background: var(--brand-dark); }
+    .gate-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .gate-error { font-size: 13px; color: #fca5a5; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); border-radius: 8px; padding: 10px 12px; margin-bottom: 14px; display: none; line-height: 1.5; }
+    .gate-error.show { display: block; }
+
+    /* RETURNING CUSTOMER BANNER */
+    .returning-banner { background: linear-gradient(135deg, rgba(124,58,237,0.1), rgba(34,197,94,0.05)); border-bottom: 1px solid rgba(124,58,237,0.2); padding: 14px 40px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    .returning-info strong { color: var(--accent); font-size: 14px; }
+    .returning-info span { color: var(--gray); font-size: 13px; margin-left: 8px; }
+    .returning-actions { display: flex; gap: 10px; flex-shrink: 0; }
+    .rb-ghost { background: none; border: 1px solid rgba(255,255,255,0.12); color: #888; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.2s; }
+    .rb-ghost:hover { border-color: rgba(255,255,255,0.3); color: #fff; }
+    .rb-brand { background: var(--brand); border: none; color: #fff; padding: 8px 18px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; transition: opacity 0.2s; }
+    .rb-brand:hover { opacity: 0.88; }
   </style>
 </head>
 <body>
+
+<!-- GATE MODAL — shown after Step 1 Continue if not signed in -->
+<div class="gate-overlay" id="gateOverlay" style="display:none;">
+  <div class="gate-modal">
+    <div class="gate-eyebrow">Almost ready</div>
+    <h2 class="gate-title">Your app is ready<br>to <span>start building.</span></h2>
+    <p class="gate-sub">Create your free account to watch it come to life as you fill out each step.</p>
+    <div class="gate-tabs">
+      <button class="gate-tab active" id="tabSignup" onclick="gateTab('signup')">Create Account</button>
+      <button class="gate-tab" id="tabLogin" onclick="gateTab('login')">Log In</button>
+    </div>
+    <!-- Signup form -->
+    <div id="gateSignupForm">
+      <div class="gate-error" id="gateSignupErr"></div>
+      <div class="gate-field"><label>First Name</label><input type="text" id="g_first_name" placeholder="Matt" autocomplete="given-name"/></div>
+      <div class="gate-field"><label>Email</label><input type="email" id="g_email" placeholder="you@company.com" autocomplete="email"/></div>
+      <div class="gate-field"><label>Password</label><input type="password" id="g_password" placeholder="Min 6 characters" autocomplete="new-password"/></div>
+      <button class="gate-btn" id="gateBtnSignup" onclick="doSignup()">Create Account & Start Building →</button>
+    </div>
+    <!-- Login form -->
+    <div id="gateLoginForm" style="display:none;">
+      <div class="gate-error" id="gateLoginErr"></div>
+      <div class="gate-field"><label>Email</label><input type="email" id="g_login_email" placeholder="you@company.com" autocomplete="email"/></div>
+      <div class="gate-field"><label>Password</label><input type="password" id="g_login_password" placeholder="Your password" autocomplete="current-password"/></div>
+      <button class="gate-btn" id="gateBtnLogin" onclick="doLogin()">Log In & Continue →</button>
+    </div>
+  </div>
+</div>
+
+<!-- RETURNING CUSTOMER BANNER -->
+<div class="returning-banner" id="returningBanner" style="display:none;">
+  <div class="returning-info">
+    <strong id="returningName"></strong>
+    <span id="returningProject"></span>
+  </div>
+  <div class="returning-actions">
+    <button class="rb-ghost" onclick="startNew()">Start Fresh</button>
+    <button class="rb-brand" onclick="continueLast()">Continue Last Project →</button>
+  </div>
+</div>
 
 <header>
   <a class="logo" href="/"><span>Arrowtrack</span><span> Forge</span></a>
@@ -1111,6 +1181,8 @@
   function nextStep() {
     autoSave();
     const completedStep = currentStep;
+    // Gate: completing Step 1 while not signed in → show account modal, don't advance yet
+    if (completedStep === 1 && !__isSignedIn) { showGateModal(); return; }
     if (currentStep < TOTAL_STEPS) showStep(currentStep + 1);
     triggerGeneration(completedStep);
   }
@@ -1222,6 +1294,7 @@
     sw.classList.add('show');
     document.getElementById('successRef').textContent = ref;
     localStorage.removeItem('sow_draft');
+    localStorage.removeItem('forge_generated');
     window.scrollTo(0, 0);
   }
 
@@ -1281,16 +1354,156 @@
     el.addEventListener('input', autoSave);
   });
 
-  // Handle return from Stripe success
-  if (new URLSearchParams(window.location.search).get('paid') === '1') {
-    loadDraft();
-    showSuccess(formData.ref_code || 'Payment received');
-    document.querySelector('.success-title').textContent = 'Deposit Received! 🎉';
-    document.querySelector('.success-sub').innerHTML = "Thank you! Your deposit is confirmed and your build slot is locked. We'll be in touch within <strong>24 hours</strong> to kick things off.";
-  } else {
+  // ─── Session state ────────────────────────────────────────────────────────
+  let __isSignedIn = false;
+  let __userName   = '';
+
+  // ─── Gate modal ───────────────────────────────────────────────────────────
+  function showGateModal() {
+    document.getElementById('gateOverlay').style.display = 'flex';
+    setTimeout(() => document.getElementById('g_first_name').focus(), 80);
+  }
+  function hideGateModal() { document.getElementById('gateOverlay').style.display = 'none'; }
+
+  function gateTab(tab) {
+    document.getElementById('gateSignupForm').style.display = tab === 'signup' ? 'block' : 'none';
+    document.getElementById('gateLoginForm').style.display  = tab === 'login'  ? 'block' : 'none';
+    document.getElementById('tabSignup').classList.toggle('active', tab === 'signup');
+    document.getElementById('tabLogin').classList.toggle('active',  tab === 'login');
+    setTimeout(() => document.getElementById(tab === 'login' ? 'g_login_email' : 'g_first_name').focus(), 50);
+  }
+  function showGateError(which, msg) {
+    const el = document.getElementById(which === 'signup' ? 'gateSignupErr' : 'gateLoginErr');
+    el.textContent = msg; el.classList.add('show');
+  }
+  function clearGateErrors() {
+    ['gateSignupErr','gateLoginErr'].forEach(id => { const el = document.getElementById(id); el.textContent = ''; el.classList.remove('show'); });
+  }
+
+  async function doSignup() {
+    clearGateErrors();
+    const fn = document.getElementById('g_first_name').value.trim();
+    const em = document.getElementById('g_email').value.trim();
+    const pw = document.getElementById('g_password').value;
+    if (!fn || !em || !pw) { showGateError('signup', 'Please fill in all three fields.'); return; }
+    if (pw.length < 6) { showGateError('signup', 'Password must be at least 6 characters.'); return; }
+    const btn = document.getElementById('gateBtnSignup');
+    btn.disabled = true; btn.textContent = 'Creating account…';
+    try {
+      const res = await fetch('/api/draft/start', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+        body: JSON.stringify({ first_name: fn, email: em, password: pw })
+      });
+      const data = await res.json();
+      if (!res.ok) { showGateError('signup', data.error || 'Could not create account. Try again.'); btn.disabled = false; btn.textContent = 'Create Account & Start Building →'; return; }
+      if (data.draft && data.draft.formData) formData = { ...data.draft.formData };
+      else { formData.first_name = fn; formData.client_email = em; formData.client_name = fn; }
+      __isSignedIn = true; __userName = fn;
+      hideGateModal();
+      showStep(2);
+      triggerGeneration(1);
+    } catch(err) { showGateError('signup', 'Network error. Please try again.'); btn.disabled = false; btn.textContent = 'Create Account & Start Building →'; }
+  }
+
+  async function doLogin() {
+    clearGateErrors();
+    const em = document.getElementById('g_login_email').value.trim();
+    const pw = document.getElementById('g_login_password').value;
+    if (!em || !pw) { showGateError('login', 'Please enter your email and password.'); return; }
+    const btn = document.getElementById('gateBtnLogin');
+    btn.disabled = true; btn.textContent = 'Logging in…';
+    try {
+      const res = await fetch('/api/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+        body: JSON.stringify({ email: em, password: pw })
+      });
+      const data = await res.json();
+      if (!res.ok) { showGateError('login', data.error || 'Invalid email or password.'); btn.disabled = false; btn.textContent = 'Log In & Continue →'; return; }
+      __isSignedIn = true; __userName = data.name || em.split('@')[0];
+      hideGateModal();
+      showStep(2);
+      triggerGeneration(1);
+    } catch(err) { showGateError('login', 'Network error. Please try again.'); btn.disabled = false; btn.textContent = 'Log In & Continue →'; }
+  }
+
+  // Enter-key support inside gate modal
+  ['g_first_name','g_email','g_password'].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('keydown', e => { if (e.key === 'Enter') doSignup(); }); });
+  ['g_login_email','g_login_password'].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); }); });
+
+  // ─── Returning customer banner ────────────────────────────────────────────
+  function showReturningBanner() {
+    let projectName = 'your project';
+    try { const d = JSON.parse(localStorage.getItem('sow_draft') || '{}'); projectName = d.project_name || d.company_name || projectName; } catch(e) {}
+    document.getElementById('returningName').textContent = `Welcome back, ${__userName}!`;
+    document.getElementById('returningProject').textContent = `"${projectName}" is saved.`;
+    document.getElementById('returningBanner').style.display = 'flex';
+  }
+
+  function continueLast() {
+    document.getElementById('returningBanner').style.display = 'none';
     loadDraft();
     updateNav();
+    try {
+      const saved = localStorage.getItem('forge_generated');
+      if (saved) { generatedFiles = JSON.parse(saved); showPreview(generatedFiles); }
+    } catch(e) {}
   }
+
+  function startNew() {
+    localStorage.removeItem('sow_draft');
+    localStorage.removeItem('forge_generated');
+    formData = {}; generatedFiles = {};
+    document.querySelectorAll('input[type="text"],input[type="email"],input[type="tel"],input[type="url"],textarea').forEach(el => { el.value = ''; });
+    document.querySelectorAll('select').forEach(el => { el.selectedIndex = 0; });
+    document.querySelectorAll('.check-item').forEach(el => el.classList.remove('checked'));
+    document.querySelectorAll('.radio-card').forEach(el => el.classList.remove('selected'));
+    const frame = document.getElementById('previewFrame');
+    if (frame._prevBlob) URL.revokeObjectURL(frame._prevBlob);
+    frame.style.display = 'none';
+    document.getElementById('previewPlaceholder').style.display = 'flex';
+    setPreviewStatus('Fill in step 1 to start building', 'idle');
+    document.getElementById('returningBanner').style.display = 'none';
+    showStep(1); updateNav();
+  }
+
+  // ─── Session-aware page initialisation ───────────────────────────────────
+  async function initPage() {
+    // Stripe return
+    if (new URLSearchParams(window.location.search).get('paid') === '1') {
+      loadDraft();
+      showSuccess(formData.ref_code || 'Payment received');
+      document.querySelector('.success-title').textContent = 'Deposit Received! 🎉';
+      document.querySelector('.success-sub').innerHTML = "Thank you! Your deposit is confirmed and your build slot is locked. We'll be in touch within <strong>24 hours</strong> to kick things off.";
+      return;
+    }
+    try {
+      const r = await fetch('/api/me', { credentials: 'same-origin' });
+      if (r.ok) {
+        const me = await r.json();
+        __isSignedIn = true;
+        __userName = me.name || me.email.split('@')[0];
+        // Check for an existing in-progress draft
+        let hasDraft = false;
+        try { const d = JSON.parse(localStorage.getItem('sow_draft') || '{}'); if (d.company_name || d.project_name) hasDraft = true; } catch(e) {}
+        if (hasDraft) {
+          showReturningBanner();
+          // Don't auto-load — let them choose Continue or Start Fresh
+        } else {
+          loadDraft(); updateNav();
+          try { const s = localStorage.getItem('forge_generated'); if (s) { generatedFiles = JSON.parse(s); showPreview(generatedFiles); } } catch(e) {}
+        }
+      } else {
+        // Not signed in — wizard is free, gate fires on Step 1 Continue
+        __isSignedIn = false;
+        loadDraft(); updateNav();
+      }
+    } catch(err) {
+      __isSignedIn = false;
+      loadDraft(); updateNav();
+    }
+  }
+
+  initPage();
 </script>
 </body>
 </html>

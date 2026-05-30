@@ -632,7 +632,7 @@ app.post('/api/login', async (req, res) => {
 // ─── Progressive app generation ─────────────────────────────────────────────
 // Called after each wizard step. No session required — anonymous users get
 // files back in the response; signed-in users also get them saved to their draft.
-app.post('/api/draft/generate', async (req, res) => {
+app.post('/api/draft/generate', requireCustomer, async (req, res) => {
   const step = Number(req.body.step);
   const formData = req.body.formData || {};
   const clientFiles = req.body.existingFiles || {}; // client sends back what it has
