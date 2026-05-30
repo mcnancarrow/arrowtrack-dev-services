@@ -4,7 +4,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { Octokit } = require('@octokit/rest');
 const { generateStep, GENERATION_STEPS } = require('./generator');
-const { deployProject } = require('./deployer');
+const { deployProject, redeployToNetlify, pushToGitHub, pollDeploy, takeScreenshot } = require('./deployer');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -389,7 +389,7 @@ app.post('/api/submit', async (req, res) => {
   const db = await readDB();
   db.push({ id: Date.now(), ref_code: ref, client_name: data.client_name, client_email: data.client_email,
     company_name: data.company_name, project_name: data.project_name, quote_total: quote.total,
-    status: 'new', created_at: new Date().toISOString(), data });
+    status: 'pending_review', created_at: new Date().toISOString(), data });
   await writeDB(db);
 
   // Promote the in-progress draft to a finalized submission: mark it submitted
@@ -411,6 +411,8 @@ app.post('/api/submit', async (req, res) => {
   // ── Fire-and-forget deploy pipeline ─────────────────────────────────────────
   // Reads the customer's generated files from their draft (saved by the wizard)
   // and deploys them: GitHub repo → Netlify → screenshot → back-fills the row.
+  // Capture host now (req may not be available inside async IIFE after response)
+  const deployOrigin = process.env.APP_URL || `https://${req.get('host')}`;
   if (process.env.NETLIFY_TOKEN && data.client_email) {
     (async () => {
       try {
@@ -418,6 +420,10 @@ app.post('/api/submit', async (req, res) => {
         const drafts = await readDrafts();
         const draft = drafts[normEmail(data.client_email)];
         const files = draft && draft.generatedFiles;
+        // Persist generated files to submission row so admin can review/edit them
+        if (files && Object.keys(files).length > 0) {
+          await updateSubmissionField(ref, { generated_files: files });
+        }
         if (!files || Object.keys(files).length === 0) {
           await updateSubmissionField(ref, { deploy_status: 'no_files' });
           console.log(`[Deploy ${ref}] No generated files — skipping deploy`);
@@ -435,6 +441,22 @@ app.post('/api/submit', async (req, res) => {
           screenshot_url:  result.screenshotUrl,
           site_id:         result.siteId || null,
         });
+        // Email admin: preview is live and ready for the human review pass
+        await sendEmail(
+          process.env.OWNER_EMAIL,
+          `[Review Ready] ${data.project_name || 'New Project'} — ${ref}`,
+          emailShell('Preview Ready for Your Review',
+            `<p style="color:#aaa;margin-bottom:16px;">A new submission is live and ready for your quick human pass before billing.</p>
+             <table style="width:100%;border-collapse:collapse;">
+               <tr><td style="padding:8px 0;color:#888;width:120px;">Client</td><td style="padding:8px 0;color:#fff;font-weight:600;">${data.client_name || '—'}</td></tr>
+               <tr><td style="padding:8px 0;color:#888;">Project</td><td style="padding:8px 0;color:#fff;">${data.project_name || '—'}</td></tr>
+               <tr><td style="padding:8px 0;color:#888;">Quote</td><td style="padding:8px 0;color:#22C55E;font-weight:700;">$${quote.total.toLocaleString()}</td></tr>
+               <tr><td style="padding:8px 0;color:#888;">Preview</td><td style="padding:8px 0;"><a href="${result.deployUrl}" style="color:#a78bfa;">${result.deployUrl}</a></td></tr>
+             </table>
+             <p style="margin:26px 0;"><a href="${deployOrigin}/admin" style="background:#7C3AED;color:#fff;text-decoration:none;padding:14px 28px;border-radius:8px;font-weight:700;display:inline-block;">Review in Admin Panel →</a></p>
+             <p style="color:#777;font-size:13px;">Regenerate any step, edit the files directly, redeploy, then click Approve &amp; Send Payment Link.</p>`,
+            ref)
+        ).catch(e => console.warn('[Review email] failed:', e.message));
       } catch (err) {
         console.error(`[Deploy ${ref}] Pipeline failed:`, err.message);
         await updateSubmissionField(ref, { deploy_status: 'failed', deploy_error: err.message });
@@ -725,6 +747,93 @@ app.post('/admin/api/submissions/:id/domain-active', requireAdminAuth, async (re
   db[idx].domain_status = 'active';
   await writeDB(db);
   res.json({ success: true });
+});
+
+// ─── Admin: regenerate a single generation step ─────────────────────────────
+app.post('/admin/api/submissions/:id/regenerate-step', requireAdminAuth, async (req, res) => {
+  const step = Number(req.body.step);
+  if (!GENERATION_STEPS.includes(step)) {
+    return res.status(400).json({ error: `Step ${step} is not a generation step. Valid: ${GENERATION_STEPS.join(', ')}` });
+  }
+  const db = await readDB();
+  const row = db.find(r => r.id == req.params.id);
+  if (!row) return res.status(404).json({ error: 'Submission not found.' });
+  const formData = row.data || {};
+  const existingFiles = row.generated_files || {};
+  try {
+    const result = await generateStep(step, formData, existingFiles);
+    await updateSubmissionField(row.ref_code, { generated_files: result.files });
+    res.json({ success: true, files: result.files, summary: result.summary, step });
+  } catch (err) {
+    console.error(`[Admin regen step ${step}]`, err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Admin: save manually edited files ──────────────────────────────────────
+app.post('/admin/api/submissions/:id/save-files', requireAdminAuth, async (req, res) => {
+  const { files } = req.body;
+  if (!files || typeof files !== 'object') return res.status(400).json({ error: 'files object required.' });
+  const db = await readDB();
+  const row = db.find(r => r.id == req.params.id);
+  if (!row) return res.status(404).json({ error: 'Not found.' });
+  await updateSubmissionField(row.ref_code, { generated_files: files });
+  res.json({ success: true });
+});
+
+// ─── Admin: redeploy current generated files to Netlify + GitHub ─────────────
+app.post('/admin/api/submissions/:id/redeploy', requireAdminAuth, async (req, res) => {
+  const db = await readDB();
+  const row = db.find(r => r.id == req.params.id);
+  if (!row) return res.status(404).json({ error: 'Not found.' });
+  if (!row.generated_files || Object.keys(row.generated_files).length === 0) {
+    return res.status(400).json({ error: 'No generated files on this submission. Run the wizard first.' });
+  }
+  if (!process.env.NETLIFY_TOKEN) return res.status(500).json({ error: 'NETLIFY_TOKEN not configured.' });
+  if (row.deploy_status === 'deploying') return res.status(409).json({ error: 'Deploy already in progress.' });
+
+  // Return immediately — redeploy runs in background
+  res.json({ success: true, status: 'deploying' });
+
+  // Fire-and-forget: redeploy to existing Netlify site, update GitHub, new screenshot
+  (async () => {
+    try {
+      await updateSubmissionField(row.ref_code, { deploy_status: 'deploying' });
+      const files = row.generated_files;
+
+      let deployUrl;
+      if (row.site_id) {
+        // Existing site — push a new deploy without creating a new site
+        const { deployId } = await redeployToNetlify(row.site_id, files);
+        deployUrl = await pollDeploy(deployId);
+      } else {
+        // No site yet — full first deploy
+        const result = await deployProject({ refCode: row.ref_code, projectName: row.project_name, files });
+        deployUrl = result.deployUrl;
+        await updateSubmissionField(row.ref_code, { site_id: result.siteId, repo_url: result.repoUrl });
+      }
+
+      // Update GitHub with a new commit (non-fatal if it fails)
+      if (row.repo_url && process.env.GITHUB_TOKEN) {
+        await pushToGitHub(row.repo_url, files, `Admin review update — ${new Date().toISOString().split('T')[0]}`)
+          .catch(e => console.warn('[Redeploy] GitHub update failed:', e.message));
+      }
+
+      // Fresh screenshot after warm-up
+      await new Promise(r => setTimeout(r, 5000));
+      const screenshotUrl = await takeScreenshot(deployUrl).catch(() => row.screenshot_url);
+
+      await updateSubmissionField(row.ref_code, {
+        deploy_status:  'ready',
+        deploy_url:     deployUrl,
+        screenshot_url: screenshotUrl,
+      });
+      console.log(`[Redeploy ${row.ref_code}] Done: ${deployUrl}`);
+    } catch (err) {
+      console.error(`[Redeploy ${row.ref_code}] Failed:`, err.message);
+      await updateSubmissionField(row.ref_code, { deploy_status: 'failed', deploy_error: err.message });
+    }
+  })();
 });
 
 // ─── Customer auth API ──────────────────────────────────────────

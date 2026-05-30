@@ -187,4 +187,77 @@ async function deployProject({ refCode, projectName, files }) {
   return { repoUrl, deployUrl: liveUrl || siteUrl, screenshotUrl, siteId };
 }
 
-module.exports = { deployProject };
+// ─── Redeploy to an existing Netlify site (no new site creation) ─────────────
+async function redeployToNetlify(siteId, files) {
+  const token = process.env.NETLIFY_TOKEN;
+  const base  = 'https://api.netlify.com/api/v1';
+  const auth  = { 'Authorization': `Bearer ${token}` };
+
+  const manifest = {};
+  for (const [filename, content] of Object.entries(files)) {
+    const key = filename.startsWith('/') ? filename : `/${filename}`;
+    manifest[key] = sha1(content);
+  }
+  const deployRes = await fetch(`${base}/sites/${siteId}/deploys`, {
+    method: 'POST',
+    headers: { ...auth, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ files: manifest }),
+  });
+  if (!deployRes.ok) {
+    const msg = await deployRes.text();
+    throw new Error(`Netlify redeploy failed (${deployRes.status}): ${msg}`);
+  }
+  const deploy = await deployRes.json();
+  const hashToFile = {};
+  for (const [filename, content] of Object.entries(files)) {
+    const key = filename.startsWith('/') ? filename : `/${filename}`;
+    hashToFile[manifest[key]] = { path: key, content };
+  }
+  await Promise.all(
+    (deploy.required || []).map(async (hash) => {
+      const file = hashToFile[hash];
+      if (!file) return;
+      const urlPath = file.path.startsWith('/') ? file.path.slice(1) : file.path;
+      const r = await fetch(`${base}/deploys/${deploy.id}/files/${urlPath}`, {
+        method: 'PUT',
+        headers: { ...auth, 'Content-Type': 'application/octet-stream' },
+        body: file.content,
+      });
+      if (!r.ok) console.warn(`[Redeploy] Upload failed for ${file.path}: ${r.status}`);
+    })
+  );
+  return { deployId: deploy.id };
+}
+
+// ─── Push updated files to existing GitHub repo as a new commit ───────────────
+async function pushToGitHub(repoUrl, files, message) {
+  const match = repoUrl.match(/github\.com\/([^/]+)\/([^/\s]+)/);
+  if (!match) throw new Error(`Invalid GitHub repo URL: ${repoUrl}`);
+  const owner = match[1];
+  const repo  = match[2].replace(/\.git$/, '');
+  const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
+
+  const { data: ref }       = await octokit.git.getRef({ owner, repo, ref: 'heads/main' });
+  const { data: headCommit } = await octokit.git.getCommit({ owner, repo, commit_sha: ref.object.sha });
+
+  const treeItems = await Promise.all(
+    Object.entries(files).map(async ([filename, content]) => {
+      const { data: blob } = await octokit.git.createBlob({
+        owner, repo,
+        content: Buffer.from(content).toString('base64'),
+        encoding: 'base64',
+      });
+      return { path: filename, mode: '100644', type: 'blob', sha: blob.sha };
+    })
+  );
+  const { data: tree }   = await octokit.git.createTree({ owner, repo, base_tree: headCommit.tree.sha, tree: treeItems });
+  const { data: commit } = await octokit.git.createCommit({
+    owner, repo,
+    message: message || `Review update — ${new Date().toISOString().split('T')[0]}`,
+    tree: tree.sha, parents: [ref.object.sha],
+  });
+  await octokit.git.updateRef({ owner, repo, ref: 'heads/main', sha: commit.sha });
+  return commit.sha;
+}
+
+module.exports = { deployProject, redeployToNetlify, pushToGitHub, pollDeploy, takeScreenshot };

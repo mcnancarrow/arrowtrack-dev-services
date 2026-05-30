@@ -120,6 +120,25 @@
     .sidebar-deploy-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); display: inline-block; margin-left: 4px; vertical-align: middle; }
     .sidebar-deploy-dot.deploying { background: #fcd34d; animation: pulse-dot 1.4s ease-in-out infinite; }
     @keyframes pulse-dot { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+
+    /* PENDING REVIEW */
+    .status-pending_review { background: rgba(251,191,36,0.15); color: #fcd34d; }
+    .review-panel { background: linear-gradient(160deg,rgba(251,191,36,0.06),rgba(124,58,237,0.06)); border: 1px solid rgba(251,191,36,0.25); border-radius: 12px; padding: 20px 24px; margin-bottom: 20px; }
+    .review-panel-title { font-size: 11px; font-weight: 700; color: #fcd34d; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 12px; }
+    .step-btn { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 7px 14px; font-size: 12px; font-weight: 600; color: #aaa; cursor: pointer; transition: all 0.15s; font-family: inherit; }
+    .step-btn:hover { background: rgba(124,58,237,0.2); border-color: rgba(124,58,237,0.4); color: #fff; }
+    .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .step-btn.running { background: rgba(124,58,237,0.2); border-color: var(--brand); color: #a78bfa; }
+
+    /* FILE EDITOR */
+    .file-editor { background: var(--dark2); border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; margin-bottom: 20px; overflow: hidden; }
+    .file-editor-header { padding: 14px 20px; border-bottom: 1px solid rgba(255,255,255,0.06); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+    .file-editor-title { font-size: 11px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.1em; }
+    .file-tabs { display: flex; gap: 2px; background: var(--dark3); border-radius: 8px; padding: 3px; }
+    .file-tab { background: none; border: none; border-radius: 6px; padding: 5px 14px; font-size: 12px; font-weight: 600; color: #555; cursor: pointer; font-family: 'Courier New', monospace; transition: all 0.15s; }
+    .file-tab.active { background: var(--dark2); color: #fff; }
+    .file-textarea { width: 100%; height: 380px; background: #080808; border: none; border-top: 1px solid rgba(255,255,255,0.05); color: #e2e8f0; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.7; padding: 16px 20px; resize: vertical; outline: none; tab-size: 2; }
+    .file-editor-footer { padding: 12px 20px; border-top: 1px solid rgba(255,255,255,0.06); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
   </style>
 </head>
 <body>
@@ -206,6 +225,45 @@
     const total = d.quote_total ?? s.quote_total;
     const deposit = d.quote_deposit ?? (total ? Math.round(total * 0.5) : 0);
 
+    // ── Pre-build review panel + file editor strings (must NOT go inside the
+    //    template literal — file content would escape backticks / ${} sequences)
+    const stepBtns = [1,2,3,4,5,7].map(function(n) {
+      var labels = {1:'① Foundation',2:'② Platforms',3:'③ Features',4:'④ Screens',5:'⑤ Design',7:'⑦ Content'};
+      return '<button class="step-btn" onclick="regenerateStep(' + id + ',' + n + ',this)">' + labels[n] + '</button>';
+    }).join('');
+    const hasFiles = !!(s.generated_files && Object.keys(s.generated_files).length > 0);
+    const reviewPanelHtml = s.status === 'pending_review' ? (
+      '<div class="review-panel">' +
+        '<div class="review-panel-title">⚡ Human Review — AI Build Ready</div>' +
+        '<p style="font-size:13px;color:#ccc;line-height:1.7;margin-bottom:14px;">The AI has generated this project. Review and tweak the files below, then redeploy and approve when satisfied.</p>' +
+        '<div style="margin-bottom:14px;">' +
+          '<div style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Re-generate individual AI steps</div>' +
+          '<div style="display:flex;gap:8px;flex-wrap:wrap;">' + stepBtns + '</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">' +
+          '<button class="action-btn btn-active" style="font-size:13px;" onclick="redeployApp(' + id + ')">🚀 Redeploy Updated App</button>' +
+          '<button class="action-btn btn-approve" onclick="sendPaymentLink(' + id + ')">✓ Approve &amp; Send Payment Link</button>' +
+        '</div>' +
+      '</div>'
+    ) : '';
+    const fileEditorHtml = hasFiles ? (function() {
+      var fileKeys = Object.keys(s.generated_files);
+      var tabs = fileKeys.map(function(name, i) {
+        return '<button class="file-tab' + (i === 0 ? ' active' : '') + '" onclick="switchFileTab(' + id + ',\'' + name.replace(/\\/g,'\\\\').replace(/'/g,"\\'") + '\',this)">' + name + '</button>';
+      }).join('');
+      return '<div class="file-editor">' +
+        '<div class="file-editor-header">' +
+          '<div class="file-editor-title">Generated Files (' + fileKeys.length + ')</div>' +
+          '<div class="file-tabs" id="fileTabs-' + id + '">' + tabs + '</div>' +
+        '</div>' +
+        '<textarea class="file-textarea" id="fileArea-' + id + '" spellcheck="false"></textarea>' +
+        '<div class="file-editor-footer">' +
+          '<button class="action-btn btn-reviewing" onclick="saveFiles(' + id + ')">💾 Save Changes</button>' +
+          '<span style="font-size:12px;color:#555;" id="saveStatus-' + id + '"></span>' +
+        '</div>' +
+      '</div>';
+    })() : '';
+
     document.getElementById('detail').innerHTML = `
       <div class="detail-header">
         <div>
@@ -227,6 +285,8 @@
         ${d.care_plan ? `<div class="qb-block"><span class="qb-label">Care Plan</span><span class="qb-deposit" style="color:var(--accent);">$199/mo</span></div>` : ''}
         <div class="qb-block"><span class="qb-label">Package</span><span style="font-size:15px;font-weight:700;color:#fff;">${d.package || '—'}</span></div>
       </div>` : ''}
+
+      ${reviewPanelHtml}
 
       ${s.deploy_status ? (() => {
         const statusClass =
@@ -309,6 +369,8 @@
         </div>`;
       })() : ''}
 
+      ${fileEditorHtml}
+
       <div class="detail-grid">
         <div class="detail-card">
           <div class="detail-card-title">Client</div>
@@ -378,6 +440,8 @@
       ${d.additional_notes ? `<div class="detail-full"><div class="detail-full-title">Timeline Notes</div><p>${d.additional_notes}</p></div>` : ''}
       ${d.final_notes ? `<div class="detail-full"><div class="detail-full-title">Additional Notes</div><p>${d.final_notes}</p></div>` : ''}
     `;
+    // Populate file editor AFTER innerHTML is set — textarea.value bypasses template-literal escaping
+    if (hasFiles) populateFileEditor(id, s.generated_files);
   }
 
   async function updateStatus(id, status) {
@@ -439,6 +503,100 @@
     await fetch(`/admin/api/submissions/${id}/domain-active`, { method: 'POST' });
     loadDetail(id);
     loadSubmissions();
+  }
+
+  // ── File editor helpers ──────────────────────────────────────────────────
+  function populateFileEditor(id, files) {
+    window._forgeFiles = window._forgeFiles || {};
+    window._forgeFiles[id] = Object.assign({}, files);
+    var fileKeys = Object.keys(files);
+    if (!fileKeys.length) return;
+    var area = document.getElementById('fileArea-' + id);
+    if (!area) return;
+    // Try to keep the currently-active tab; fall back to first file.
+    var activeTab = document.querySelector('#fileTabs-' + id + ' .file-tab.active');
+    var keyToShow = (activeTab && files[activeTab.textContent] !== undefined) ? activeTab.textContent : fileKeys[0];
+    area.value = files[keyToShow] || '';
+  }
+
+  function switchFileTab(id, tab, btn) {
+    var area = document.getElementById('fileArea-' + id);
+    if (!area) return;
+    // Persist current textarea value back into the in-memory store before switching.
+    var activeTab = document.querySelector('#fileTabs-' + id + ' .file-tab.active');
+    if (activeTab && window._forgeFiles && window._forgeFiles[id]) {
+      window._forgeFiles[id][activeTab.textContent] = area.value;
+    }
+    document.querySelectorAll('#fileTabs-' + id + ' .file-tab').forEach(function(t) { t.classList.remove('active'); });
+    btn.classList.add('active');
+    area.value = (window._forgeFiles && window._forgeFiles[id] && window._forgeFiles[id][tab]) || '';
+  }
+
+  async function regenerateStep(id, step, btn) {
+    btn.disabled = true;
+    btn.classList.add('running');
+    var origText = btn.textContent;
+    btn.textContent = '⏳ Running…';
+    try {
+      var res = await fetch('/admin/api/submissions/' + id + '/regenerate-step', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ step: step })
+      });
+      var data = await res.json();
+      if (!res.ok) { alert(data.error || 'Regeneration failed.'); return; }
+      if (data.files) {
+        window._forgeFiles = window._forgeFiles || {};
+        // Merge new files into the existing set (step may only update some files).
+        window._forgeFiles[id] = Object.assign(window._forgeFiles[id] || {}, data.files);
+        populateFileEditor(id, window._forgeFiles[id]);
+      }
+    } catch (err) {
+      alert('Network error: ' + err.message);
+    } finally {
+      btn.textContent = origText;
+      btn.disabled = false;
+      btn.classList.remove('running');
+    }
+  }
+
+  async function saveFiles(id) {
+    var area = document.getElementById('fileArea-' + id);
+    var statusEl = document.getElementById('saveStatus-' + id);
+    // Flush textarea into the in-memory store first.
+    var activeTab = document.querySelector('#fileTabs-' + id + ' .file-tab.active');
+    if (area && activeTab && window._forgeFiles && window._forgeFiles[id]) {
+      window._forgeFiles[id][activeTab.textContent] = area.value;
+    }
+    var files = (window._forgeFiles && window._forgeFiles[id]) || {};
+    if (statusEl) statusEl.textContent = 'Saving…';
+    try {
+      var res = await fetch('/admin/api/submissions/' + id + '/save-files', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ files: files })
+      });
+      if (!res.ok) { if (statusEl) statusEl.textContent = '✗ Save failed'; return; }
+      if (statusEl) {
+        statusEl.textContent = '✓ Saved';
+        setTimeout(function() { if (statusEl) statusEl.textContent = ''; }, 3000);
+      }
+    } catch (err) {
+      if (statusEl) statusEl.textContent = '✗ Network error';
+    }
+  }
+
+  async function redeployApp(id) {
+    if (!confirm('Save current files and redeploy to Netlify?\n\nThe live preview URL will update in ~60–90 seconds.')) return;
+    // Persist any unsaved edits to the server before redeploying.
+    await saveFiles(id);
+    var res = await fetch('/admin/api/submissions/' + id + '/redeploy', { method: 'POST' });
+    var data = {};
+    try { data = await res.json(); } catch {}
+    if (!res.ok) { alert(data.error || 'Redeploy request failed.'); return; }
+    alert('🚀 Redeploy started!\n\nThe sidebar will show a pulsing yellow dot while deploying. This panel will auto-refresh in ~95 seconds.');
+    loadSubmissions(); // show deploying dot immediately
+    setTimeout(function() { loadDetail(id); loadSubmissions(); }, 95000);
   }
 
   loadSubmissions();
