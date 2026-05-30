@@ -1110,6 +1110,7 @@ app.get('/api/my-projects', requireCustomer, async (req, res) => {
       quote_monthly: q.monthly,
       deposit_paid: !!r.deposit_paid, balance_paid: !!r.balance_paid,
       deploy_status:      r.deploy_status || null,
+      regen_status:       r.regen_status || null,
       deploy_url:         r.deploy_url || null,
       screenshot_url:     r.screenshot_url || null,
       file_names:         Object.keys(r.generated_files || {}),
@@ -1130,6 +1131,66 @@ app.get('/api/my-projects/:ref/file', requireCustomer, async (req, res) => {
     return res.status(404).json({ error: 'File not found' });
   }
   res.json({ content: row.generated_files[name] });
+});
+
+// ─── Customer: self-serve regenerate + redeploy their own project ────────────
+// Re-runs every generation step from the stored wizard data, then pushes the
+// fresh files live. Fire-and-forget; the portal polls regen_status/deploy_status.
+app.post('/api/my-projects/:ref/regenerate', requireCustomer, async (req, res) => {
+  const db = await readDB();
+  const row = db.find(r => r.ref_code === req.params.ref && normEmail(r.client_email) === req.customerEmail);
+  if (!row) return res.status(404).json({ error: 'Project not found' });
+  if (row.regen_status === 'running' || (row.regen_status || '').startsWith('running:')) {
+    return res.status(409).json({ error: 'A rebuild is already in progress.' });
+  }
+  if (row.deploy_status === 'deploying') {
+    return res.status(409).json({ error: 'A deploy is already in progress.' });
+  }
+
+  await updateSubmissionField(row.ref_code, { regen_status: 'running' });
+  res.json({ success: true, status: 'started' });
+
+  // Fire-and-forget: regenerate all steps, then redeploy live.
+  (async () => {
+    const formData = row.data || {};
+    let files = {};
+    try {
+      for (const step of GENERATION_STEPS) {
+        await updateSubmissionField(row.ref_code, { regen_status: `running:${step}` });
+        const result = await generateStep(step, formData, files);
+        files = Object.assign({}, files, result.files || {});
+      }
+      await updateSubmissionField(row.ref_code, { generated_files: files, regen_status: 'done' });
+      console.log(`[self-regen ${row.ref_code}] Generated ${Object.keys(files).length} file(s)`);
+
+      // Auto-redeploy the fresh files (best effort — needs Netlify configured).
+      if (process.env.NETLIFY_TOKEN) {
+        await updateSubmissionField(row.ref_code, { deploy_status: 'deploying' });
+        let deployUrl;
+        if (row.site_id) {
+          const { deployId } = await redeployToNetlify(row.site_id, files);
+          deployUrl = await pollDeploy(deployId);
+        } else {
+          const result = await deployProject({ refCode: row.ref_code, projectName: row.project_name, files });
+          deployUrl = result.deployUrl;
+          await updateSubmissionField(row.ref_code, { site_id: result.siteId, repo_url: result.repoUrl });
+        }
+        if (row.repo_url && process.env.GITHUB_TOKEN) {
+          await pushToGitHub(row.repo_url, files, `Customer rebuild — ${new Date().toISOString().split('T')[0]}`)
+            .catch(e => console.warn('[self-regen] GitHub update failed:', e.message));
+        }
+        await new Promise(r => setTimeout(r, 5000));
+        const screenshotUrl = await takeScreenshot(deployUrl).catch(() => row.screenshot_url);
+        await updateSubmissionField(row.ref_code, {
+          deploy_status: 'ready', deploy_url: deployUrl, screenshot_url: screenshotUrl,
+        });
+        console.log(`[self-regen ${row.ref_code}] Live: ${deployUrl}`);
+      }
+    } catch (err) {
+      console.error(`[self-regen ${row.ref_code}]`, err.message);
+      await updateSubmissionField(row.ref_code, { regen_status: `error:${err.message}`, deploy_status: 'failed', deploy_error: err.message });
+    }
+  })();
 });
 
 // Pay the remaining balance on a delivered project (customer's own Stripe checkout)
