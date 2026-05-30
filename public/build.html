@@ -250,67 +250,9 @@
 
     /* DIVIDER */
     .divider { height: 1px; background: rgba(255,255,255,0.06); margin: 32px 0; }
-    /* Signup gate — sits on top of the wizard until user creates account / logs in */
-    .gate-backdrop { position: fixed; inset: 0; background: rgba(13,13,13,0.92); backdrop-filter: blur(8px); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; overflow-y: auto; }
-    .gate-card { background: linear-gradient(180deg, #181818 0%, #111 100%); border: 1px solid rgba(124,58,237,0.35); border-radius: 16px; padding: 36px 32px; max-width: 440px; width: 100%; box-shadow: 0 24px 80px rgba(0,0,0,0.6); }
-    .gate-card h2 { font-size: 22px; margin: 0 0 8px; color: #fff; }
-    .gate-card .gate-sub { color: var(--gray); font-size: 14px; line-height: 1.55; margin-bottom: 22px; }
-    .gate-card label { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: #999; margin-bottom: 6px; font-weight: 600; }
-    .gate-card input[type="text"], .gate-card input[type="email"], .gate-card input[type="password"] { width: 100%; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 12px 14px; color: #fff; font-size: 14px; font-family: inherit; margin-bottom: 14px; box-sizing: border-box; }
-    .gate-card input:focus { outline: none; border-color: var(--brand); }
-    .gate-btn { width: 100%; background: var(--brand); color: #fff; border: 0; border-radius: 8px; padding: 14px; font-size: 15px; font-weight: 700; cursor: pointer; margin-top: 6px; transition: opacity 0.2s; font-family: inherit; }
-    .gate-btn:hover { opacity: 0.9; }
-    .gate-btn:disabled { opacity: 0.55; cursor: wait; }
-    .gate-toggle { margin-top: 18px; text-align: center; font-size: 13px; color: var(--gray); }
-    .gate-toggle a { color: var(--brand); text-decoration: none; cursor: pointer; font-weight: 600; }
-    .gate-toggle a:hover { text-decoration: underline; }
-    .gate-error { background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.35); color: #fca5a5; font-size: 13px; padding: 10px 12px; border-radius: 8px; margin-bottom: 14px; display: none; }
-    .gate-error.show { display: block; }
-    .gate-help { font-size: 11px; color: #666; margin-top: -8px; margin-bottom: 14px; }
-    body.gate-open { overflow: hidden; }
   </style>
 </head>
-<body class="gate-open">
-
-<!-- ─── SIGNUP / RESUME GATE ───────────────────────────────────────
-     Hard gate at the front of the funnel: every visitor must give us
-     name + email + password (or log in) before the wizard becomes
-     interactive. That way no one's progress is ever lost, and we have
-     a lead the moment they start typing.                             -->
-<div class="gate-backdrop" id="signupGate">
-  <div class="gate-card">
-
-    <!-- New-user signup form (default) -->
-    <div id="gateSignup">
-      <h2>Let's build something great.</h2>
-      <p class="gate-sub">We'll auto-save your progress as you go — so you can pick up right where you left off, on any device.</p>
-      <div class="gate-error" id="gateSignupError"></div>
-      <label>First Name</label>
-      <input type="text" id="gate_first_name" placeholder="Matt" autocomplete="given-name"/>
-      <label>Email</label>
-      <input type="email" id="gate_email" placeholder="you@yourcompany.com" autocomplete="email"/>
-      <label>Password</label>
-      <input type="password" id="gate_password" placeholder="At least 6 characters" autocomplete="new-password"/>
-      <div class="gate-help">You'll use this to resume your project later — and to view your quote &amp; pay the deposit.</div>
-      <button class="gate-btn" id="gateSignupBtn" onclick="gateStart()">Save &amp; Start →</button>
-      <div class="gate-toggle">Already started? <a onclick="gateToggle('resume')">Resume your project</a></div>
-    </div>
-
-    <!-- Returning-user resume form (hidden by default) -->
-    <div id="gateResume" style="display:none;">
-      <h2>Welcome back.</h2>
-      <p class="gate-sub">Sign in to pick up where you left off.</p>
-      <div class="gate-error" id="gateResumeError"></div>
-      <label>Email</label>
-      <input type="email" id="resume_email" placeholder="you@yourcompany.com" autocomplete="email"/>
-      <label>Password</label>
-      <input type="password" id="resume_password" placeholder="Your password" autocomplete="current-password"/>
-      <button class="gate-btn" id="gateResumeBtn" onclick="gateResume()">Resume Project →</button>
-      <div class="gate-toggle">New here? <a onclick="gateToggle('signup')">Start a new project</a></div>
-    </div>
-
-  </div>
-</div>
+<body>
 
 <header>
   <a class="logo" href="/"><span>Arrowtrack</span><span> Forge</span></a>
@@ -988,128 +930,6 @@
     } catch (err) { /* network blip — localStorage already has it, will retry on next autoSave */ }
   }
 
-  // ─── Signup / Resume gate handlers ──────────────────────────────
-  function gateToggle(which) {
-    document.getElementById('gateSignup').style.display = (which === 'signup') ? 'block' : 'none';
-    document.getElementById('gateResume').style.display = (which === 'resume') ? 'block' : 'none';
-    document.getElementById('gateSignupError').classList.remove('show');
-    document.getElementById('gateResumeError').classList.remove('show');
-  }
-  function gateError(which, msg) {
-    const el = document.getElementById(which === 'signup' ? 'gateSignupError' : 'gateResumeError');
-    el.textContent = msg; el.classList.add('show');
-  }
-  function hideGate(email, name) {
-    __sessionEmail = email;
-    if (name && !formData.first_name) formData.first_name = name;
-    if (email && !formData.client_email) formData.client_email = email;
-    document.getElementById('signupGate').style.display = 'none';
-    document.body.classList.remove('gate-open');
-  }
-  async function gateStart() {
-    const fn = document.getElementById('gate_first_name').value.trim();
-    const em = document.getElementById('gate_email').value.trim();
-    const pw = document.getElementById('gate_password').value;
-    if (!fn || !em || !pw) { gateError('signup', 'Please fill in all three fields.'); return; }
-    if (pw.length < 6) { gateError('signup', 'Password must be at least 6 characters.'); return; }
-    const btn = document.getElementById('gateSignupBtn');
-    btn.disabled = true; btn.textContent = 'Saving...';
-    try {
-      const res = await fetch('/api/draft/start', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-        body: JSON.stringify({ first_name: fn, email: em, password: pw }),
-      });
-      const data = await res.json();
-      if (!res.ok) { gateError('signup', data.error || 'Could not start your project. Please try again.'); btn.disabled = false; btn.textContent = 'Save & Start →'; return; }
-      // If they returned an existing draft, restore it.
-      if (data.draft && data.draft.formData) {
-        formData = { ...data.draft.formData };
-        applyFormDataToInputs();
-        if (data.draft.currentStep) showStep(data.draft.currentStep);
-      } else {
-        // Fresh draft: seed the contact fields so the user doesn't have to re-enter them on Step 7
-        formData.first_name = fn;
-        formData.client_email = em;
-        formData.client_name = fn;
-        const fnEl = document.getElementById('first_name'); if (fnEl) fnEl.value = fn;
-        const emEl = document.getElementById('client_email'); if (emEl) emEl.value = em;
-      }
-      hideGate(data.email, data.name);
-    } catch (err) {
-      gateError('signup', 'Network error. Please try again.');
-      btn.disabled = false; btn.textContent = 'Save & Start →';
-    }
-  }
-  async function gateResume() {
-    const em = document.getElementById('resume_email').value.trim();
-    const pw = document.getElementById('resume_password').value;
-    if (!em || !pw) { gateError('resume', 'Please enter your email and password.'); return; }
-    const btn = document.getElementById('gateResumeBtn');
-    btn.disabled = true; btn.textContent = 'Loading...';
-    try {
-      const res = await fetch('/api/draft/resume', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-        body: JSON.stringify({ email: em, password: pw }),
-      });
-      const data = await res.json();
-      if (!res.ok) { gateError('resume', data.error || 'Invalid email or password.'); btn.disabled = false; btn.textContent = 'Resume Project →'; return; }
-      if (data.draft && data.draft.formData) {
-        formData = { ...data.draft.formData };
-        applyFormDataToInputs();
-        if (data.draft.currentStep) showStep(data.draft.currentStep);
-      }
-      hideGate(data.email, data.name);
-    } catch (err) {
-      gateError('resume', 'Network error. Please try again.');
-      btn.disabled = false; btn.textContent = 'Resume Project →';
-    }
-  }
-
-  // Helper used by gate + loadDraft: write formData values into the matching inputs/UI state.
-  function applyFormDataToInputs() {
-    Object.keys(formData).forEach(key => {
-      const el = document.getElementById(key);
-      if (el && (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA') && el.type !== 'checkbox' && el.type !== 'radio') {
-        el.value = formData[key] || '';
-      }
-    });
-    if (formData.color_primary)   { const p = document.getElementById('color_primary_picker');   if (p) p.value = formData.color_primary; }
-    if (formData.color_secondary) { const p = document.getElementById('color_secondary_picker'); if (p) p.value = formData.color_secondary; }
-    ['platform_web','platform_ios','platform_android','del_admin','del_payments','del_ai','del_push','del_email','del_maps','del_analytics','del_cms',
-     'feat_auth','feat_oauth','feat_roles','feat_magic','feat_stripe','feat_subscriptions','feat_freemium','feat_iap',
-     'feat_ai_content','feat_ai_chat','feat_ai_analysis','feat_automation'].forEach(id => {
-      if (formData[id]) {
-        const el = document.querySelector(`[onclick*="'${id}'"]`);
-        if (el) el.classList.add('checked');
-      }
-    });
-    if (formData.color_mode) {
-      const el = document.querySelector(`[onclick*="'${formData.color_mode}'"]`);
-      if (el) el.classList.add('checked');
-    }
-    if (formData.package) {
-      const el = document.querySelector(`#packageGrid .radio-card[onclick*="${formData.package.split(' — ')[0]}"]`);
-      if (el) el.classList.add('selected');
-    }
-  }
-
-  // On page load: if user already has a valid session cookie, skip the gate.
-  async function checkExistingSession() {
-    try {
-      const r = await fetch('/api/me', { credentials: 'same-origin' });
-      if (r.ok) {
-        const me = await r.json();
-        const draftRes = await fetch('/api/draft/load', { credentials: 'same-origin' });
-        const draftData = draftRes.ok ? await draftRes.json() : { draft: null };
-        if (draftData.draft && draftData.draft.formData) {
-          formData = { ...draftData.draft.formData };
-          applyFormDataToInputs();
-          if (draftData.draft.currentStep) showStep(draftData.draft.currentStep);
-        }
-        hideGate(me.email, me.name);
-      }
-    } catch (err) { /* not logged in — gate stays up */ }
-  }
 
   // Load saved draft
   function loadDraft() {
@@ -1325,13 +1145,9 @@
     showSuccess(formData.ref_code || 'Payment received');
     document.querySelector('.success-title').textContent = 'Deposit Received! 🎉';
     document.querySelector('.success-sub').innerHTML = "Thank you! Your deposit is confirmed and your build slot is locked. We'll be in touch within <strong>24 hours</strong> to kick things off.";
-    // Already paid → user is logged in already, no gate needed.
-    document.getElementById('signupGate').style.display = 'none';
-    document.body.classList.remove('gate-open');
   } else {
-    loadDraft();          // local fallback first (so something shows even if /api/me is slow)
+    loadDraft();
     updateNav();
-    checkExistingSession(); // overrides with server-side data + hides gate if a valid session cookie exists
   }
 </script>
 </body>
