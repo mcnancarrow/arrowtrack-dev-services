@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const { generateStep, GENERATION_STEPS } = require('./generator');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -626,6 +627,57 @@ app.post('/api/login', async (req, res) => {
   }
   setSessionCookie(res, email);
   res.json({ success: true, name: acct.name, email });
+});
+
+// ─── Progressive app generation ─────────────────────────────────────────────
+// Called after each wizard step. No session required — anonymous users get
+// files back in the response; signed-in users also get them saved to their draft.
+app.post('/api/draft/generate', async (req, res) => {
+  const step = Number(req.body.step);
+  const formData = req.body.formData || {};
+  const clientFiles = req.body.existingFiles || {}; // client sends back what it has
+
+  if (!GENERATION_STEPS.includes(step)) {
+    return res.json({ skipped: true, step });
+  }
+
+  try {
+    const result = await generateStep(step, formData, clientFiles);
+
+    // If signed in, persist generated files to the server draft too
+    const email = verifySession(req.cookies.forge_session);
+    if (email) {
+      try {
+        const drafts = await readDrafts();
+        const key = normEmail(email);
+        if (!drafts[key]) drafts[key] = {};
+        drafts[key].generatedFiles = result.files;
+        drafts[key].generationStep = step;
+        await writeDrafts(drafts);
+      } catch (e) { /* non-fatal — client already has the files */ }
+    }
+
+    res.json({ success: true, files: result.files, summary: result.summary, step });
+  } catch (err) {
+    console.error('Generation error step', step, err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Preview: serve a specific generated file from the signed-in user's draft
+// (fallback — anonymous users render via blob URL client-side)
+app.get('/preview/:filename', requireCustomer, async (req, res) => {
+  try {
+    const drafts = await readDrafts();
+    const draft = drafts[normEmail(req.customerEmail)];
+    const files = draft && draft.generatedFiles;
+    const content = files && files[req.params.filename];
+    if (!content) return res.status(404).send('Not generated yet.');
+    const ext = req.params.filename.split('.').pop();
+    const types = { html: 'text/html', css: 'text/css', js: 'application/javascript' };
+    res.set('Content-Type', types[ext] || 'text/plain');
+    res.send(content);
+  } catch (err) { res.status(500).send('Error loading preview.'); }
 });
 
 // ─── Draft funnel: progressive save so half-finished briefs aren't lost ─

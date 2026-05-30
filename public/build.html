@@ -35,6 +35,28 @@
       padding: 5px 12px; border-radius: 100px; letter-spacing: 0.05em; text-transform: uppercase;
     }
 
+    /* TWO-COLUMN LAYOUT */
+    .forge-layout { display: flex; height: calc(100vh - 61px); overflow: hidden; }
+    .forge-left { flex: 1; overflow-y: auto; min-width: 0; }
+    .forge-preview { width: 440px; min-width: 440px; border-left: 1px solid rgba(255,255,255,0.06); display: flex; flex-direction: column; background: #080808; position: relative; }
+    @media (max-width: 1100px) { .forge-layout { display: block; height: auto; overflow: visible; } .forge-preview { display: none; } }
+
+    /* PREVIEW PANEL */
+    .preview-header { padding: 14px 20px; border-bottom: 1px solid rgba(255,255,255,0.06); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+    .preview-label { font-size: 11px; font-weight: 700; color: #555; text-transform: uppercase; letter-spacing: 0.08em; }
+    .preview-status { font-size: 12px; color: var(--gray); display: flex; align-items: center; gap: 6px; }
+    .preview-dot { width: 6px; height: 6px; border-radius: 50%; background: #333; flex-shrink: 0; }
+    .preview-dot.generating { background: var(--brand); animation: pulse 1s infinite; }
+    .preview-dot.ready { background: var(--accent); }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+    .preview-frame-wrap { flex: 1; position: relative; overflow: hidden; }
+    .preview-frame-wrap iframe { width: 100%; height: 100%; border: none; background: #fff; }
+    .preview-placeholder { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: #333; }
+    .preview-placeholder svg { opacity: 0.3; }
+    .preview-placeholder p { font-size: 13px; color: #444; text-align: center; line-height: 1.5; }
+    .preview-progress { height: 2px; background: rgba(255,255,255,0.04); flex-shrink: 0; }
+    .preview-progress-fill { height: 100%; background: linear-gradient(90deg, var(--brand), var(--accent)); width: 0%; transition: width 0.6s ease; }
+
     /* PROGRESS */
     .progress-wrap { background: var(--dark2); border-bottom: 1px solid rgba(255,255,255,0.06); padding: 20px 40px; }
     .progress-inner { max-width: 760px; margin: 0 auto; }
@@ -259,6 +281,8 @@
   <div class="header-tag">Build Your App</div>
 </header>
 
+<div class="forge-layout">
+<div class="forge-left">
 <div class="progress-wrap">
   <div class="progress-inner">
     <div class="progress-labels">
@@ -762,6 +786,27 @@
     <button class="btn-pay" id="btnPay" onclick="payDeposit()" style="display:none">Pay 50% Deposit →</button>
   </div>
 </div>
+</div><!-- end .forge-left -->
+
+<!-- LIVE PREVIEW PANEL -->
+<div class="forge-preview" id="forgePreview">
+  <div class="preview-header">
+    <span class="preview-label">Live Preview</span>
+    <span class="preview-status">
+      <span class="preview-dot" id="previewDot"></span>
+      <span id="previewStatusText">Fill in step 1 to start building</span>
+    </span>
+  </div>
+  <div class="preview-progress"><div class="preview-progress-fill" id="previewProgressFill"></div></div>
+  <div class="preview-frame-wrap">
+    <div class="preview-placeholder" id="previewPlaceholder">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+      <p>Your app preview will<br>appear here as you build.</p>
+    </div>
+    <iframe id="previewFrame" style="display:none;" sandbox="allow-scripts allow-same-origin"></iframe>
+  </div>
+</div>
+</div><!-- end .forge-layout -->
 
 <script>
   let currentStep = 1;
@@ -1063,8 +1108,105 @@
     updateNav();
   }
 
-  function nextStep() { autoSave(); if (currentStep < TOTAL_STEPS) showStep(currentStep + 1); }
+  function nextStep() {
+    autoSave();
+    const completedStep = currentStep;
+    if (currentStep < TOTAL_STEPS) showStep(currentStep + 1);
+    triggerGeneration(completedStep);
+  }
   function prevStep() { if (currentStep > 1) showStep(currentStep - 1); }
+
+  // ─── Progressive generation ───────────────────────────────────────────────
+  const GEN_STEPS = [1, 2, 3, 4, 5, 7];
+  let generatedFiles = {};  // accumulates across steps (persisted in localStorage)
+  let isGenerating = false;
+  let genQueue = [];        // queue steps if one is already in-flight
+
+  // Restore any previously generated files from localStorage
+  try {
+    const saved = localStorage.getItem('forge_generated');
+    if (saved) generatedFiles = JSON.parse(saved);
+    if (Object.keys(generatedFiles).length > 0) showPreview(generatedFiles);
+  } catch(e) {}
+
+  function setPreviewStatus(text, state) {
+    // state: 'idle' | 'generating' | 'ready'
+    document.getElementById('previewStatusText').textContent = text;
+    const dot = document.getElementById('previewDot');
+    dot.className = 'preview-dot' + (state === 'generating' ? ' generating' : state === 'ready' ? ' ready' : '');
+  }
+
+  function setPreviewProgress(pct) {
+    document.getElementById('previewProgressFill').style.width = pct + '%';
+  }
+
+  function showPreview(files) {
+    if (!files['index.html']) return;
+    const html = files['index.html'] || '';
+    const css  = files['styles.css'] || '';
+    const js   = files['app.js'] || '';
+    // Bundle everything into a single HTML blob so the iframe needs no external requests
+    const bundled = html
+      .replace('</head>', `<style>${css}</style></head>`)
+      .replace('</body>', `<script>${js.replace(/<\/script>/g,'<\\/script>')}<\/script></body>`);
+    const blob = new Blob([bundled], { type: 'text/html' });
+    const url  = URL.createObjectURL(blob);
+    const frame = document.getElementById('previewFrame');
+    if (frame._prevBlob) URL.revokeObjectURL(frame._prevBlob);
+    frame._prevBlob = url;
+    frame.src = url;
+    frame.style.display = 'block';
+    document.getElementById('previewPlaceholder').style.display = 'none';
+  }
+
+  async function triggerGeneration(step) {
+    if (!GEN_STEPS.includes(step)) return;
+    if (isGenerating) { genQueue.push(step); return; }
+    collectFields();
+    isGenerating = true;
+
+    const LABELS = {
+      1: 'Building your app structure…',
+      2: 'Adding platform components…',
+      3: 'Wiring up features…',
+      4: 'Laying out your screens…',
+      5: 'Applying your brand…',
+      7: 'Personalising your content…',
+    };
+    setPreviewStatus(LABELS[step] || 'Generating…', 'generating');
+    setPreviewProgress(20);
+
+    try {
+      setPreviewProgress(40);
+      const res = await fetch('/api/draft/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ step, formData, existingFiles: generatedFiles })
+      });
+      setPreviewProgress(80);
+      const data = await res.json();
+      if (data.success && data.files) {
+        generatedFiles = data.files;
+        localStorage.setItem('forge_generated', JSON.stringify(generatedFiles));
+        showPreview(generatedFiles);
+        setPreviewStatus(data.summary || 'Updated ✓', 'ready');
+      } else if (data.skipped) {
+        setPreviewStatus('Ready', 'ready');
+      } else {
+        setPreviewStatus('Generation error — try again', 'idle');
+        console.warn('Generation error:', data.error);
+      }
+    } catch(err) {
+      setPreviewStatus('Network error', 'idle');
+      console.error('Generation fetch failed:', err);
+    } finally {
+      setPreviewProgress(100);
+      setTimeout(() => setPreviewProgress(0), 800);
+      isGenerating = false;
+      if (genQueue.length > 0) triggerGeneration(genQueue.shift());
+    }
+  }
 
   // Allow clicking progress labels to jump
   document.querySelectorAll('.progress-label').forEach(l => {
