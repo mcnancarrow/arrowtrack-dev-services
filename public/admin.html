@@ -242,8 +242,11 @@
       regenAllLabel   = '⏳ Step ' + (_rIdx + 1) + '/6: ' + (_rStepNm[_rStep] || 'Running…');
       regenAllDisabled = ' disabled';
     }
-    const regenAllBtn = '<button class="action-btn btn-delete" id="regenAllBtn-' + id + '"' + regenAllDisabled +
-      ' style="font-size:13px;" onclick="regenerateAll(' + id + ',this)">' + regenAllLabel + '</button>';
+    // Intentionally small + muted — this is destructive, should not be easy to hit
+    const regenAllBtn = '<button id="regenAllBtn-' + id + '"' + regenAllDisabled +
+      ' onclick="regenerateAll(' + id + ',this)"' +
+      ' style="font-size:11px;font-weight:600;color:#555;background:none;border:1px solid #333;border-radius:6px;padding:4px 10px;cursor:pointer;font-family:inherit;white-space:nowrap;">' +
+      regenAllLabel + '</button>';
 
     const reviewPanelHtml = s.status === 'pending_review' ? (
       '<div class="review-panel">' +
@@ -254,9 +257,12 @@
           '<div style="display:flex;gap:8px;flex-wrap:wrap;">' + stepBtns + '</div>' +
         '</div>' +
         '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">' +
-          regenAllBtn +
           '<button class="action-btn btn-active" style="font-size:13px;" onclick="redeployApp(' + id + ')">🚀 Redeploy Updated App</button>' +
           '<button class="action-btn btn-approve" onclick="sendPaymentLink(' + id + ')">✓ Approve &amp; Send Payment Link</button>' +
+        '</div>' +
+        '<div style="margin-top:16px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.05);display:flex;align-items:center;gap:10px;">' +
+          '<span style="font-size:11px;color:#444;flex:1;">Nuclear option — replaces all files with a fresh AI build</span>' +
+          regenAllBtn +
         '</div>' +
       '</div>'
     ) : '';
