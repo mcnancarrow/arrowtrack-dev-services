@@ -433,6 +433,7 @@ app.post('/api/submit', async (req, res) => {
           deploy_url:      result.deployUrl,
           repo_url:        result.repoUrl,
           screenshot_url:  result.screenshotUrl,
+          site_id:         result.siteId || null,
         });
       } catch (err) {
         console.error(`[Deploy ${ref}] Pipeline failed:`, err.message);
@@ -643,6 +644,87 @@ app.post('/admin/api/submissions/:id/send-payment-link', async (req, res) => {
     <p style="color:#777;font-size:13px;">Log in with the email and password you used when submitting your brief. The remaining 50% is due on delivery.</p>`;
   const emailSent = await sendEmail(row.client_email, `Your project is approved — pay your deposit · ${row.ref_code}`, emailShell('Your Project is Approved', body, row.ref_code));
   res.json({ success: true, status: 'approved', emailSent, deposit: quote.deposit, portalUrl });
+});
+
+// ─── Domain assignment ──────────────────────────────────────────────────────
+// Admin assigns a custom domain to a deployed Netlify site.
+// Netlify provisions the domain link; we hand back DNS records for the customer.
+app.post('/admin/api/submissions/:id/assign-domain', requireAdminAuth, async (req, res) => {
+  const rawDomain = String(req.body.domain || '').trim();
+  if (!rawDomain) return res.status(400).json({ error: 'Domain is required.' });
+
+  // Normalise: strip protocol + trailing path, lowercase
+  const domain = rawDomain.replace(/^https?:\/\//i, '').replace(/\/.*$/, '').toLowerCase();
+  if (!domain.includes('.') || domain.length < 4) {
+    return res.status(400).json({ error: 'Please enter a valid domain (e.g. www.yourbusiness.com).' });
+  }
+
+  const db = await readDB();
+  const idx = db.findIndex(r => r.id == req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Submission not found.' });
+  const row = db[idx];
+
+  if (!row.site_id) return res.status(400).json({ error: 'No Netlify site linked to this submission. Deploy the app first.' });
+  if (!process.env.NETLIFY_TOKEN) return res.status(500).json({ error: 'NETLIFY_TOKEN not configured on the server.' });
+
+  const token = process.env.NETLIFY_TOKEN;
+  const base  = 'https://api.netlify.com/api/v1';
+  const auth  = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+
+  try {
+    // Tell Netlify to link this custom domain to the site
+    const r = await fetch(`${base}/sites/${row.site_id}/domains`, {
+      method: 'POST', headers: auth,
+      body: JSON.stringify({ hostname: domain }),
+    });
+    if (!r.ok) {
+      const body = await r.text();
+      let msg = 'Failed to assign domain on Netlify.';
+      try { msg = JSON.parse(body).message || msg; } catch {}
+      return res.status(r.status).json({ error: msg });
+    }
+
+    // Fetch the site to get the netlify subdomain for DNS instructions
+    const siteRes = await fetch(`${base}/sites/${row.site_id}`, { headers: { 'Authorization': `Bearer ${token}` } });
+    const site = siteRes.ok ? await siteRes.json() : null;
+    const netlifyHost = site
+      ? (site.ssl_url || site.url || '').replace(/^https?:\/\//, '')
+      : (row.deploy_url || '').replace(/^https?:\/\//, '');
+
+    // Build DNS records based on domain type
+    const parts = domain.split('.');
+    const isApex = parts.length === 2; // e.g. "mybusiness.com" — no subdomain
+    const dnsRecords = isApex
+      ? [
+          { type: 'A',     host: '@',   value: '75.2.60.5',  ttl: '3600', note: 'Apex domain → Netlify load balancer' },
+          { type: 'CNAME', host: 'www', value: netlifyHost,  ttl: '3600', note: 'www → Netlify site' },
+        ]
+      : [
+          { type: 'CNAME', host: parts.slice(0, -2).join('.') || '@', value: netlifyHost, ttl: '3600', note: 'Subdomain → Netlify site' },
+        ];
+
+    // Persist to submission row
+    db[idx].custom_domain     = domain;
+    db[idx].domain_status     = 'pending_dns';
+    db[idx].domain_dns_records = dnsRecords;
+    await writeDB(db);
+
+    console.log(`[Domain] Assigned ${domain} → site ${row.site_id} for ${row.ref_code}`);
+    res.json({ success: true, domain, dns_records: dnsRecords, netlify_host: netlifyHost });
+  } catch (err) {
+    console.error('assign-domain error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Mark a custom domain as active (admin confirms DNS has propagated)
+app.post('/admin/api/submissions/:id/domain-active', requireAdminAuth, async (req, res) => {
+  const db = await readDB();
+  const idx = db.findIndex(r => r.id == req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Not found.' });
+  db[idx].domain_status = 'active';
+  await writeDB(db);
+  res.json({ success: true });
 });
 
 // ─── Customer auth API ──────────────────────────────────────────
@@ -857,6 +939,11 @@ app.get('/api/my-projects', requireCustomer, async (req, res) => {
       quote_total: q.total, quote_deposit: q.deposit, balance_due: Math.max(0, q.total - q.deposit),
       quote_monthly: q.monthly,
       deposit_paid: !!r.deposit_paid, balance_paid: !!r.balance_paid,
+      deploy_status:      r.deploy_status || null,
+      deploy_url:         r.deploy_url || null,
+      custom_domain:      r.custom_domain || null,
+      domain_status:      r.domain_status || null,
+      domain_dns_records: r.domain_dns_records || null,
       data: r.data
     };
   }));

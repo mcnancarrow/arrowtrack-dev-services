@@ -118,6 +118,7 @@ async function netlifyCreateSiteAndDeploy(refCode, files) {
 
   return {
     deployId: deploy.id,
+    siteId: site.id,
     siteUrl: site.ssl_url || `https://${siteName}.netlify.app`,
   };
 }
@@ -166,7 +167,7 @@ async function deployProject({ refCode, projectName, files }) {
   console.log(`[Deploy ${refCode}] Starting pipeline — ${Object.keys(files).length} file(s)`);
 
   // GitHub + Netlify deploy kick-off in parallel (independent)
-  const [repoUrl, { deployId, siteUrl }] = await Promise.all([
+  const [repoUrl, { deployId, siteId, siteUrl }] = await Promise.all([
     createGitHubRepo(refCode, projectName, files)
       .then(url => { console.log(`[Deploy ${refCode}] GitHub repo: ${url}`); return url; })
       .catch(err => { console.warn(`[Deploy ${refCode}] GitHub skipped: ${err.message}`); return null; }),
@@ -183,7 +184,7 @@ async function deployProject({ refCode, projectName, files }) {
   const screenshotUrl = await takeScreenshot(liveUrl);
   if (screenshotUrl) console.log(`[Deploy ${refCode}] Screenshot captured`);
 
-  return { repoUrl, deployUrl: liveUrl || siteUrl, screenshotUrl };
+  return { repoUrl, deployUrl: liveUrl || siteUrl, screenshotUrl, siteId };
 }
 
 module.exports = { deployProject };

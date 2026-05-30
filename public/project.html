@@ -75,6 +75,23 @@
     .btn-pay:disabled { opacity: 0.5; cursor: not-allowed; }
     .pay-note { font-size: 13px; color: var(--accent); margin-top: 12px; line-height: 1.5; }
     .banner { background: rgba(34,197,94,0.12); border: 1px solid rgba(34,197,94,0.3); color: var(--accent); border-radius: 12px; padding: 16px 20px; margin-bottom: 28px; font-size: 14px; font-weight: 600; }
+
+    /* LIVE APP PANEL */
+    .live-panel { background: linear-gradient(135deg, rgba(124,58,237,0.1), rgba(34,197,94,0.06)); border: 1px solid rgba(124,58,237,0.3); border-radius: 14px; padding: 22px 24px; margin-bottom: 16px; }
+    .live-panel-title { font-size: 11px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+    .live-btn { display: inline-flex; align-items: center; gap: 8px; background: var(--accent); color: #000; border: none; border-radius: 10px; padding: 11px 22px; font-size: 14px; font-weight: 800; cursor: pointer; text-decoration: none; transition: opacity 0.2s; }
+    .live-btn:hover { opacity: 0.88; }
+    .dns-block { margin-top: 18px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,0.07); }
+    .dns-title { font-size: 12px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; }
+    .dns-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .dns-table th { text-align: left; padding: 4px 12px 4px 0; color: #555; font-weight: 600; }
+    .dns-table td { padding: 7px 12px 7px 0; border-top: 1px solid rgba(255,255,255,0.05); }
+    .dns-type { color: #a78bfa; font-weight: 700; }
+    .dns-host { color: #fff; font-family: monospace; }
+    .dns-val  { color: var(--accent); font-family: monospace; word-break: break-all; }
+    .dns-ttl  { color: #555; }
+    .dns-note { font-size: 12px; color: #888; margin-top: 10px; line-height: 1.5; }
+    .domain-active-tag { font-size: 11px; font-weight: 700; background: rgba(34,197,94,0.15); color: var(--accent); border: 1px solid rgba(34,197,94,0.3); padding: 3px 10px; border-radius: 100px; }
   </style>
 </head>
 <body>
@@ -137,6 +154,35 @@
       </div>
 
       ${timeline(p.status)}
+
+      ${p.deploy_url || p.custom_domain ? (() => {
+        const hasDomain = p.custom_domain && p.domain_status;
+        const domainActive = p.domain_status === 'active';
+        const liveUrl = domainActive ? `https://${p.custom_domain}` : p.deploy_url;
+        const dnsRows = (p.domain_dns_records || []).map(r =>
+          `<tr><td class="dns-type">${r.type}</td><td class="dns-host">${r.host}</td><td class="dns-val">${r.value}</td><td class="dns-ttl">${r.ttl}</td></tr>`
+        ).join('');
+        return `<div class="live-panel">
+          <div class="live-panel-title">
+            🚀 Your Live App
+            ${domainActive ? `<span class="domain-active-tag">✓ Custom Domain Active</span>` : ''}
+            ${p.domain_status === 'pending_dns' ? `<span style="font-size:11px;font-weight:700;background:rgba(251,191,36,0.12);color:#fcd34d;border:1px solid rgba(251,191,36,0.2);padding:3px 10px;border-radius:100px;">⏳ Domain Pending DNS</span>` : ''}
+          </div>
+          <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+            <a class="live-btn" href="${liveUrl}" target="_blank">🌐 Open Your App →</a>
+            ${hasDomain && !domainActive ? `<span style="font-size:13px;color:#888;">Preview: <a href="${p.deploy_url}" target="_blank" style="color:#a78bfa;">${p.deploy_url}</a></span>` : ''}
+          </div>
+          ${hasDomain && !domainActive && dnsRows ? `
+          <div class="dns-block">
+            <div class="dns-title">DNS Setup — add these records at your domain registrar</div>
+            <table class="dns-table">
+              <thead><tr><th>Type</th><th>Host</th><th>Value</th><th>TTL</th></tr></thead>
+              <tbody>${dnsRows}</tbody>
+            </table>
+            <p class="dns-note">Add these records at your registrar (GoDaddy, Namecheap, etc.). DNS usually propagates within 5–60 minutes. Once live, your app will be accessible at <strong style="color:#fff;">${p.custom_domain}</strong>.</p>
+          </div>` : ''}
+        </div>`;
+      })() : ''}
 
       <div class="grid">
         <div class="panel">

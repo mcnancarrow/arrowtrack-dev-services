@@ -230,15 +230,61 @@
 
       ${s.deploy_status ? (() => {
         const statusClass =
-          s.deploy_status === 'ready'    ? 'status-active' :
-          s.deploy_status === 'deploying' ? 'status-deploying' :
-          s.deploy_status === 'failed'    ? 'status-failed' :
+          s.deploy_status === 'ready'     ? 'status-active' :
+          s.deploy_status === 'deploying'  ? 'status-deploying' :
+          s.deploy_status === 'failed'     ? 'status-failed' :
           'status-no-files';
         const statusLabel =
-          s.deploy_status === 'ready'    ? '🟢 Live' :
-          s.deploy_status === 'deploying' ? '🟡 Deploying…' :
-          s.deploy_status === 'failed'    ? '🔴 Failed' :
+          s.deploy_status === 'ready'     ? '🟢 Live' :
+          s.deploy_status === 'deploying'  ? '🟡 Deploying…' :
+          s.deploy_status === 'failed'     ? '🔴 Failed' :
           s.deploy_status;
+
+        const domainBadge =
+          s.domain_status === 'active'      ? '<span class="status-badge status-active" style="margin-left:8px;">✓ Domain Active</span>' :
+          s.domain_status === 'pending_dns' ? '<span class="status-badge status-deploying" style="margin-left:8px;">⏳ Pending DNS</span>' : '';
+
+        const dnsTable = (s.domain_dns_records && s.domain_dns_records.length) ? `
+          <div style="margin-top:14px;">
+            <div style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">DNS Records — add at your domain registrar</div>
+            <table style="width:100%;border-collapse:collapse;font-size:12px;">
+              <thead><tr style="color:#555;">
+                <td style="padding:4px 10px 4px 0;">Type</td>
+                <td style="padding:4px 10px 4px 0;">Host</td>
+                <td style="padding:4px 10px 4px 0;">Value</td>
+                <td style="padding:4px 0;">TTL</td>
+              </tr></thead>
+              <tbody>
+                ${s.domain_dns_records.map(r => `<tr style="border-top:1px solid rgba(255,255,255,0.05);">
+                  <td style="padding:6px 10px 6px 0;color:#a78bfa;font-weight:700;">${r.type}</td>
+                  <td style="padding:6px 10px 6px 0;color:#fff;font-family:monospace;">${r.host}</td>
+                  <td style="padding:6px 10px 6px 0;color:#22C55E;font-family:monospace;word-break:break-all;">${r.value}</td>
+                  <td style="padding:6px 0;color:#888;">${r.ttl}</td>
+                </tr>`).join('')}
+              </tbody>
+            </table>
+            ${s.domain_status === 'pending_dns' ? `<div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+              <span style="font-size:12px;color:#888;">Once DNS propagates (usually 5–60 min), mark it active:</span>
+              <button class="action-btn btn-active" style="padding:5px 12px;font-size:12px;" onclick="markDomainActive(${s.id})">Mark Domain Active ✓</button>
+            </div>` : ''}
+          </div>` : '';
+
+        const domainAssignSection = s.deploy_status === 'ready' ? `
+          <div style="margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.06);">
+            <div style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;">
+              ${s.custom_domain ? `Custom Domain — <span style="color:#fff;font-family:monospace;">${s.custom_domain}</span>${domainBadge}` : 'Assign Custom Domain'}
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <input id="domainInput-${s.id}" type="text" value="${s.custom_domain || d.custom_domain || ''}"
+                placeholder="e.g. www.clientsite.com or app.clientbrand.com"
+                style="flex:1;min-width:220px;background:#0d0d0d;border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:9px 12px;color:#fff;font-size:13px;font-family:inherit;outline:none;"
+                onkeydown="if(event.key==='Enter')assignDomain(${s.id})"/>
+              <button class="action-btn btn-approve" style="padding:9px 16px;" onclick="assignDomain(${s.id})">Assign Domain →</button>
+            </div>
+            <div id="domainResult-${s.id}" style="margin-top:10px;"></div>
+            ${dnsTable}
+          </div>` : '';
+
         return `<div class="deploy-section">
           <div class="deploy-section-title">
             Live App
@@ -251,13 +297,15 @@
                 ? `<div class="deploy-screenshot-placeholder">Screenshot pending</div>`
                 : ''}
             <div class="deploy-links">
-              ${s.deploy_url ? `<a class="deploy-link deploy-link-live" href="${s.deploy_url}" target="_blank">🌐 Open Live App →</a>` : ''}
-              ${s.repo_url   ? `<a class="deploy-link deploy-link-repo" href="${s.repo_url}"   target="_blank">📦 View GitHub Repo →</a>` : ''}
+              ${s.deploy_url ? `<a class="deploy-link deploy-link-live" href="${s.deploy_url}" target="_blank">🌐 Open Netlify Preview →</a>` : ''}
+              ${s.custom_domain && s.domain_status === 'active' ? `<a class="deploy-link deploy-link-live" href="https://${s.custom_domain}" target="_blank" style="color:#4ade80;">✓ ${s.custom_domain} →</a>` : ''}
+              ${s.repo_url   ? `<a class="deploy-link deploy-link-repo" href="${s.repo_url}" target="_blank">📦 View GitHub Repo →</a>` : ''}
               ${!s.deploy_url && s.deploy_status === 'deploying' ? `<div class="deploy-note">Deploying now — refresh in ~60 seconds</div>` : ''}
               ${s.deploy_status === 'no_files' ? `<div class="deploy-note">No generated files found for this submission.</div>` : ''}
               ${s.deploy_status === 'failed'   ? `<div class="deploy-error">Deploy failed${s.deploy_error ? ': ' + s.deploy_error : ''}.</div>` : ''}
             </div>
           </div>
+          ${domainAssignSection}
         </div>`;
       })() : ''}
 
@@ -359,6 +407,37 @@
     const res = await fetch(`/admin/api/submissions/${id}`, { method: 'DELETE' });
     if (!res.ok) { alert('Delete failed.'); return; }
     document.getElementById('detail').innerHTML = '<div class="empty-state"><div>🗑️</div><div style="font-size:14px;">Lead deleted. Select another item on the left.</div></div>';
+    loadSubmissions();
+  }
+
+  async function assignDomain(id) {
+    const input = document.getElementById(`domainInput-${id}`);
+    const resultEl = document.getElementById(`domainResult-${id}`);
+    const domain = input ? input.value.trim() : '';
+    if (!domain) { resultEl.innerHTML = '<div class="deploy-error">Enter a domain first.</div>'; return; }
+    input.disabled = true;
+    resultEl.innerHTML = '<div class="deploy-note">Assigning domain on Netlify…</div>';
+    try {
+      const res = await fetch(`/admin/api/submissions/${id}/assign-domain`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domain }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        resultEl.innerHTML = `<div class="deploy-error">${data.error || 'Failed.'}</div>`;
+        input.disabled = false; return;
+      }
+      resultEl.innerHTML = `<div class="deploy-note" style="color:#4ade80;">✓ Domain assigned! DNS records generated — scroll down to see them.</div>`;
+      setTimeout(() => { loadDetail(id); loadSubmissions(); }, 800);
+    } catch (err) {
+      resultEl.innerHTML = `<div class="deploy-error">Network error. Try again.</div>`;
+      input.disabled = false;
+    }
+  }
+
+  async function markDomainActive(id) {
+    await fetch(`/admin/api/submissions/${id}/domain-active`, { method: 'POST' });
+    loadDetail(id);
     loadSubmissions();
   }
 
