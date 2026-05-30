@@ -1094,6 +1094,7 @@ app.get('/api/my-projects', requireCustomer, async (req, res) => {
       deposit_paid: !!r.deposit_paid, balance_paid: !!r.balance_paid,
       deploy_status:      r.deploy_status || null,
       deploy_url:         r.deploy_url || null,
+      screenshot_url:     r.screenshot_url || null,
       custom_domain:      r.custom_domain || null,
       domain_status:      r.domain_status || null,
       domain_dns_records: r.domain_dns_records || null,

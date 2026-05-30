@@ -76,11 +76,45 @@
     .pay-note { font-size: 13px; color: var(--accent); margin-top: 12px; line-height: 1.5; }
     .banner { background: rgba(34,197,94,0.12); border: 1px solid rgba(34,197,94,0.3); color: var(--accent); border-radius: 12px; padding: 16px 20px; margin-bottom: 28px; font-size: 14px; font-weight: 600; }
 
-    /* LIVE APP PANEL */
-    .live-panel { background: linear-gradient(135deg, rgba(124,58,237,0.1), rgba(34,197,94,0.06)); border: 1px solid rgba(124,58,237,0.3); border-radius: 14px; padding: 22px 24px; margin-bottom: 16px; }
-    .live-panel-title { font-size: 11px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+    /* PREVIEW PANEL (3 states: ready / building / pending) */
+    .preview-panel { border-radius: 14px; padding: 22px 24px; margin-bottom: 16px; overflow: hidden; }
+    .preview-panel.ready { background: linear-gradient(135deg, rgba(124,58,237,0.1), rgba(34,197,94,0.06)); border: 1px solid rgba(124,58,237,0.3); }
+    .preview-panel.building { background: rgba(251,191,36,0.05); border: 1px solid rgba(251,191,36,0.2); }
+    .preview-panel.pending { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.07); }
+    .preview-panel-title { font-size: 11px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+    .preview-panel.building .preview-panel-title { color: #fbbf24; }
+    .preview-panel.pending  .preview-panel-title { color: #666; }
+
+    /* Screenshot */
+    .preview-shot-wrap { position: relative; border-radius: 10px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); background: #111; margin-bottom: 14px; cursor: pointer; }
+    .preview-shot { width: 100%; display: block; max-height: 360px; object-fit: cover; object-position: top; transition: transform 0.35s; }
+    .preview-shot-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0); display: flex; align-items: center; justify-content: center; opacity: 0; transition: all 0.25s; }
+    .preview-shot-wrap:hover .preview-shot { transform: scale(1.015); }
+    .preview-shot-wrap:hover .preview-shot-overlay { background: rgba(0,0,0,0.45); opacity: 1; }
+    .preview-open-btn { background: var(--accent); color: #000; border-radius: 10px; padding: 12px 26px; font-size: 14px; font-weight: 800; text-decoration: none; }
+    .preview-url-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+
+    /* Building dots */
+    .building-body { display: flex; align-items: center; gap: 18px; padding: 8px 0 4px; }
+    .building-dots { display: flex; gap: 7px; flex-shrink: 0; }
+    .building-dots span { width: 9px; height: 9px; border-radius: 50%; background: #fbbf24; animation: pdot 1.4s ease-in-out infinite; }
+    .building-dots span:nth-child(2) { animation-delay: 0.22s; }
+    .building-dots span:nth-child(3) { animation-delay: 0.44s; }
+    @keyframes pdot { 0%,80%,100% { transform: scale(0.5); opacity: 0.3; } 40% { transform: scale(1); opacity: 1; } }
+    .building-text { font-size: 15px; font-weight: 700; color: #fbbf24; }
+    .building-sub { font-size: 13px; color: #888; margin-top: 5px; line-height: 1.4; }
+
+    /* Pending */
+    .pending-body { display: flex; align-items: flex-start; gap: 16px; padding: 6px 0 2px; }
+    .pending-icon { font-size: 28px; line-height: 1; flex-shrink: 0; }
+    .pending-text { font-size: 15px; font-weight: 700; color: #bbb; margin-bottom: 6px; }
+    .pending-sub { font-size: 13px; color: #666; line-height: 1.5; }
+
+    /* Live btn */
     .live-btn { display: inline-flex; align-items: center; gap: 8px; background: var(--accent); color: #000; border: none; border-radius: 10px; padding: 11px 22px; font-size: 14px; font-weight: 800; cursor: pointer; text-decoration: none; transition: opacity 0.2s; }
     .live-btn:hover { opacity: 0.88; }
+
+    /* DNS */
     .dns-block { margin-top: 18px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,0.07); }
     .dns-title { font-size: 12px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; }
     .dns-table { width: 100%; border-collapse: collapse; font-size: 12px; }
@@ -144,6 +178,66 @@
     const showBalance = p.balance_due > 0 && !balancePaid && (p.status === 'active' || p.status === 'complete');
     const showDeposit = p.status === 'approved' && !depositPaid && p.quote_deposit > 0;
 
+    // ── Preview panel — 3 states ──────────────────────────────────
+    let previewSection = '';
+    if (p.deploy_status === 'ready' || p.deploy_url) {
+      // State 1: App is live
+      const hasDomain = !!(p.custom_domain && p.domain_status);
+      const domainActive = p.domain_status === 'active';
+      const liveUrl = domainActive ? 'https://' + p.custom_domain : p.deploy_url;
+      const dnsRows = (p.domain_dns_records || []).map(function(r) {
+        return '<tr><td class="dns-type">' + r.type + '</td><td class="dns-host">' + r.host + '</td><td class="dns-val">' + r.value + '</td><td class="dns-ttl">' + r.ttl + '</td></tr>';
+      }).join('');
+      const shotHtml = p.screenshot_url
+        ? '<div class="preview-shot-wrap" onclick="window.open(\'' + liveUrl + '\',\'_blank\')">'
+            + '<img class="preview-shot" src="' + p.screenshot_url + '" alt="App preview" loading="lazy">'
+            + '<div class="preview-shot-overlay"><a class="preview-open-btn" href="' + liveUrl + '" target="_blank">⛶ Open Full Screen →</a></div>'
+            + '</div>'
+        : '';
+      const domainBadge = domainActive
+        ? '<span class="domain-active-tag">✓ Custom Domain Active</span>'
+        : (p.domain_status === 'pending_dns'
+            ? '<span style="font-size:11px;font-weight:700;background:rgba(251,191,36,0.12);color:#fcd34d;border:1px solid rgba(251,191,36,0.2);padding:3px 10px;border-radius:100px;">⏳ Domain Pending DNS</span>'
+            : '');
+      const urlBar = '<div class="preview-url-bar">'
+        + '<a class="live-btn" href="' + liveUrl + '" target="_blank">🌐 Open Your App →</a>'
+        + (hasDomain && !domainActive ? '<span style="font-size:13px;color:#888;">Preview: <a href="' + p.deploy_url + '" target="_blank" style="color:#a78bfa;">' + p.deploy_url + '</a></span>' : '')
+        + '</div>';
+      const dnsBlock = (hasDomain && !domainActive && dnsRows)
+        ? '<div class="dns-block"><div class="dns-title">DNS Setup — add these records at your domain registrar</div>'
+            + '<table class="dns-table"><thead><tr><th>Type</th><th>Host</th><th>Value</th><th>TTL</th></tr></thead><tbody>' + dnsRows + '</tbody></table>'
+            + '<p class="dns-note">Add these records at your registrar (GoDaddy, Namecheap, etc.). DNS usually propagates within 5–60 minutes. Once live, your app will be accessible at <strong style="color:#fff;">' + p.custom_domain + '</strong>.</p>'
+            + '</div>'
+        : '';
+      previewSection = '<div class="preview-panel ready">'
+        + '<div class="preview-panel-title">🚀 Your Live App ' + domainBadge + '</div>'
+        + shotHtml + urlBar + dnsBlock
+        + '</div>';
+    } else if (p.deploy_status === 'deploying') {
+      // State 2: Deploy in progress
+      previewSection = '<div class="preview-panel building">'
+        + '<div class="preview-panel-title">⚡ Building Your App</div>'
+        + '<div class="building-body">'
+        +   '<div class="building-dots"><span></span><span></span><span></span></div>'
+        +   '<div>'
+        +     '<div class="building-text">Assembling &amp; deploying…</div>'
+        +     '<div class="building-sub">Usually takes 1–3 minutes. This page will refresh automatically once your app is live.</div>'
+        +   '</div>'
+        + '</div>'
+        + '</div>';
+    } else {
+      // State 3: In review / no deploy yet
+      previewSection = '<div class="preview-panel pending">'
+        + '<div class="preview-panel-title">🔍 Your App Preview</div>'
+        + '<div class="pending-body">'
+        +   '<div class="pending-icon">🎨</div>'
+        +   '<div><div class="pending-text">Our team is crafting your custom app</div>'
+        +     '<div class="pending-sub">We\'re reviewing your brief and building your first version. You\'ll receive an email the moment your app is ready to preview here.</div>'
+        +   '</div>'
+        + '</div>'
+        + '</div>';
+    }
+
     return `<div class="project">
       <div class="project-head">
         <div>
@@ -155,34 +249,7 @@
 
       ${timeline(p.status)}
 
-      ${p.deploy_url || p.custom_domain ? (() => {
-        const hasDomain = p.custom_domain && p.domain_status;
-        const domainActive = p.domain_status === 'active';
-        const liveUrl = domainActive ? `https://${p.custom_domain}` : p.deploy_url;
-        const dnsRows = (p.domain_dns_records || []).map(r =>
-          `<tr><td class="dns-type">${r.type}</td><td class="dns-host">${r.host}</td><td class="dns-val">${r.value}</td><td class="dns-ttl">${r.ttl}</td></tr>`
-        ).join('');
-        return `<div class="live-panel">
-          <div class="live-panel-title">
-            🚀 Your Live App
-            ${domainActive ? `<span class="domain-active-tag">✓ Custom Domain Active</span>` : ''}
-            ${p.domain_status === 'pending_dns' ? `<span style="font-size:11px;font-weight:700;background:rgba(251,191,36,0.12);color:#fcd34d;border:1px solid rgba(251,191,36,0.2);padding:3px 10px;border-radius:100px;">⏳ Domain Pending DNS</span>` : ''}
-          </div>
-          <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
-            <a class="live-btn" href="${liveUrl}" target="_blank">🌐 Open Your App →</a>
-            ${hasDomain && !domainActive ? `<span style="font-size:13px;color:#888;">Preview: <a href="${p.deploy_url}" target="_blank" style="color:#a78bfa;">${p.deploy_url}</a></span>` : ''}
-          </div>
-          ${hasDomain && !domainActive && dnsRows ? `
-          <div class="dns-block">
-            <div class="dns-title">DNS Setup — add these records at your domain registrar</div>
-            <table class="dns-table">
-              <thead><tr><th>Type</th><th>Host</th><th>Value</th><th>TTL</th></tr></thead>
-              <tbody>${dnsRows}</tbody>
-            </table>
-            <p class="dns-note">Add these records at your registrar (GoDaddy, Namecheap, etc.). DNS usually propagates within 5–60 minutes. Once live, your app will be accessible at <strong style="color:#fff;">${p.custom_domain}</strong>.</p>
-          </div>` : ''}
-        </div>`;
-      })() : ''}
+      ${previewSection}
 
       <div class="grid">
         <div class="panel">
@@ -237,6 +304,24 @@
     } catch (err) { btn.disabled = false; btn.textContent = 'Pay Deposit →'; alert('Network error.'); }
   }
 
+  // Auto-refresh every 8s while any project is still deploying
+  let _refreshTimer = null;
+  function scheduleRefresh(projects) {
+    if (_refreshTimer) return; // already scheduled
+    const anyDeploying = projects.some(function(p) { return p.deploy_status === 'deploying'; });
+    if (!anyDeploying) return;
+    _refreshTimer = setTimeout(async function() {
+      _refreshTimer = null;
+      try {
+        const r = await fetch('/api/my-projects');
+        if (!r.ok) return;
+        const updated = await r.json();
+        document.getElementById('content').innerHTML = updated.map(projectCard).join('');
+        scheduleRefresh(updated); // keep polling until all deploys settle
+      } catch (e) { /* network blip — try again next cycle */ scheduleRefresh(projects); }
+    }, 8000);
+  }
+
   async function load() {
     // Auth check
     const meRes = await fetch('/api/me');
@@ -259,6 +344,7 @@
       return;
     }
     content.innerHTML = projects.map(projectCard).join('');
+    scheduleRefresh(projects); // kick off auto-refresh if anything is deploying
   }
 
   load();
