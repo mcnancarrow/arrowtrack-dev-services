@@ -561,7 +561,10 @@ async function sendEmail(to, subject, html, from = 'Arrowtrack Solutions <hello@
 // ─── Admin API ──────────────────────────────────────────────────
 app.get('/admin/api/submissions', async (req, res) => {
   const db = await readDB();
-  res.json(db.map(r => ({ id:r.id, ref_code:r.ref_code, client_name:r.client_name, client_email:r.client_email, company_name:r.company_name, project_name:r.project_name, quote_total:r.quote_total, status:r.status, created_at:r.created_at, deploy_status:r.deploy_status||null })).reverse());
+  // Recompute the quote from the brief data on read so stale persisted totals
+  // (saved before pricing-logic fixes) never surface. computeQuote is the single
+  // source of truth — this self-heals old records like the $400 Che Demo.
+  res.json(db.map(r => ({ id:r.id, ref_code:r.ref_code, client_name:r.client_name, client_email:r.client_email, company_name:r.company_name, project_name:r.project_name, quote_total: computeQuote(r.data||{}).total, status:r.status, created_at:r.created_at, deploy_status:r.deploy_status||null })).reverse());
 });
 
 // Abandoned-draft list for the admin dashboard. Returns one row per user with
@@ -645,7 +648,9 @@ app.post('/api/cron/draft-reminders', async (req, res) => {
 app.get('/admin/api/submissions/:id', async (req, res) => {
   const row = (await readDB()).find(r => r.id == req.params.id);
   if (!row) return res.status(404).json({ error: 'Not found' });
-  res.json(row);
+  // Recompute the quote on read so the detail view never shows a stale total.
+  const q = computeQuote(row.data || {});
+  res.json({ ...row, quote_total: q.total, quote_deposit: q.deposit, data: { ...(row.data || {}), quote_total: q.total, quote_deposit: q.deposit } });
 });
 app.put('/admin/api/submissions/:id', async (req, res) => {
   const db = await readDB(); const idx = db.findIndex(r => r.id == req.params.id);
