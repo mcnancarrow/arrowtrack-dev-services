@@ -101,6 +101,25 @@
     .tag-green { background: rgba(34,197,94,0.1); color: var(--accent); border-color: rgba(34,197,94,0.2); }
 
     .loading { text-align: center; padding: 40px; color: var(--gray); }
+
+    /* DEPLOY SECTION */
+    .deploy-section { background: var(--dark2); border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+    .deploy-section-title { font-size: 11px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+    .deploy-screenshot { width: 280px; height: 175px; object-fit: cover; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); flex-shrink: 0; }
+    .deploy-screenshot-placeholder { width: 280px; height: 120px; background: var(--dark3); border-radius: 8px; border: 1px solid rgba(255,255,255,0.07); display: flex; align-items: center; justify-content: center; color: #444; font-size: 13px; flex-shrink: 0; }
+    .deploy-links { display: flex; flex-direction: column; gap: 10px; }
+    .deploy-link { font-size: 14px; font-weight: 600; text-decoration: none; transition: opacity 0.15s; }
+    .deploy-link:hover { opacity: 0.8; }
+    .deploy-link-live { color: var(--accent); }
+    .deploy-link-repo { color: #a78bfa; }
+    .deploy-note { font-size: 12px; color: var(--gray); margin-top: 6px; }
+    .deploy-error { font-size: 12px; color: #fca5a5; margin-top: 4px; }
+    .status-deploying { background: rgba(251,191,36,0.15); color: #fcd34d; }
+    .status-failed { background: rgba(239,68,68,0.15); color: #fca5a5; }
+    .status-no-files { background: rgba(255,255,255,0.07); color: #666; }
+    .sidebar-deploy-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); display: inline-block; margin-left: 4px; vertical-align: middle; }
+    .sidebar-deploy-dot.deploying { background: #fcd34d; animation: pulse-dot 1.4s ease-in-out infinite; }
+    @keyframes pulse-dot { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
   </style>
 </head>
 <body>
@@ -163,6 +182,7 @@
         <div class="sub-company">${s.project_name || '—'} · ${s.company_name || '—'}</div>
         <div class="sub-meta">
           <span class="status-badge status-${s.status}">${s.status}</span>
+          ${s.deploy_status === 'ready' ? '<span class="sidebar-deploy-dot" title="Live app deployed"></span>' : s.deploy_status === 'deploying' ? '<span class="sidebar-deploy-dot deploying" title="Deploying…"></span>' : ''}
           <span class="sub-ref">${s.ref_code}</span>
           <span class="sub-date">${new Date(s.created_at).toLocaleDateString()}</span>
         </div>
@@ -207,6 +227,39 @@
         ${d.care_plan ? `<div class="qb-block"><span class="qb-label">Care Plan</span><span class="qb-deposit" style="color:var(--accent);">$199/mo</span></div>` : ''}
         <div class="qb-block"><span class="qb-label">Package</span><span style="font-size:15px;font-weight:700;color:#fff;">${d.package || '—'}</span></div>
       </div>` : ''}
+
+      ${s.deploy_status ? (() => {
+        const statusClass =
+          s.deploy_status === 'ready'    ? 'status-active' :
+          s.deploy_status === 'deploying' ? 'status-deploying' :
+          s.deploy_status === 'failed'    ? 'status-failed' :
+          'status-no-files';
+        const statusLabel =
+          s.deploy_status === 'ready'    ? '🟢 Live' :
+          s.deploy_status === 'deploying' ? '🟡 Deploying…' :
+          s.deploy_status === 'failed'    ? '🔴 Failed' :
+          s.deploy_status;
+        return `<div class="deploy-section">
+          <div class="deploy-section-title">
+            Live App
+            <span class="status-badge ${statusClass}">${statusLabel}</span>
+          </div>
+          <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;">
+            ${s.screenshot_url
+              ? `<img class="deploy-screenshot" src="${s.screenshot_url}" alt="App preview" onerror="this.style.display='none'">`
+              : s.deploy_status === 'ready'
+                ? `<div class="deploy-screenshot-placeholder">Screenshot pending</div>`
+                : ''}
+            <div class="deploy-links">
+              ${s.deploy_url ? `<a class="deploy-link deploy-link-live" href="${s.deploy_url}" target="_blank">🌐 Open Live App →</a>` : ''}
+              ${s.repo_url   ? `<a class="deploy-link deploy-link-repo" href="${s.repo_url}"   target="_blank">📦 View GitHub Repo →</a>` : ''}
+              ${!s.deploy_url && s.deploy_status === 'deploying' ? `<div class="deploy-note">Deploying now — refresh in ~60 seconds</div>` : ''}
+              ${s.deploy_status === 'no_files' ? `<div class="deploy-note">No generated files found for this submission.</div>` : ''}
+              ${s.deploy_status === 'failed'   ? `<div class="deploy-error">Deploy failed${s.deploy_error ? ': ' + s.deploy_error : ''}.</div>` : ''}
+            </div>
+          </div>
+        </div>`;
+      })() : ''}
 
       <div class="detail-grid">
         <div class="detail-card">

@@ -4,6 +4,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { Octokit } = require('@octokit/rest');
 const { generateStep, GENERATION_STEPS } = require('./generator');
+const { deployProject } = require('./deployer');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -56,6 +57,7 @@ app.get('/admin/api/health', requireAdminAuth, async (req, res) => {
     github_token: !!process.env.GITHUB_TOKEN,
     github_org:   process.env.GITHUB_ORG || null,
     resend:       !!process.env.RESEND_API_KEY,
+    netlify:      !!process.env.NETLIFY_TOKEN,
     stripe:       !!process.env.STRIPE_SECRET_KEY,
     database:     !!process.env.DATABASE_URL,
     session:      !!process.env.SESSION_SECRET,
@@ -126,6 +128,17 @@ const writeAccounts = (d) => setStore('accounts', ACCT_FILE, d);
 const readDrafts    = ()  => getStore('drafts', DRAFTS_FILE, {});
 const writeDrafts   = (d) => setStore('drafts', DRAFTS_FILE, d);
 const genRef = () => 'SOW-' + Date.now().toString(36).toUpperCase();
+
+// Patch individual fields on a submission row without rewriting the whole DB.
+async function updateSubmissionField(refCode, fields) {
+  try {
+    const db = await readDB();
+    const idx = db.findIndex(r => r.ref_code === refCode);
+    if (idx === -1) return;
+    Object.assign(db[idx], fields);
+    await writeDB(db);
+  } catch (err) { console.error('updateSubmissionField error:', err); }
+}
 
 // Create the table on boot and, if it's empty, seed from any existing JSON files.
 async function initStorage() {
@@ -395,6 +408,39 @@ app.post('/api/submit', async (req, res) => {
     } catch (err) { console.error('Draft promotion failed (non-fatal):', err); }
   }
 
+  // ── Fire-and-forget deploy pipeline ─────────────────────────────────────────
+  // Reads the customer's generated files from their draft (saved by the wizard)
+  // and deploys them: GitHub repo → Netlify → screenshot → back-fills the row.
+  if (process.env.NETLIFY_TOKEN && data.client_email) {
+    (async () => {
+      try {
+        await updateSubmissionField(ref, { deploy_status: 'deploying' });
+        const drafts = await readDrafts();
+        const draft = drafts[normEmail(data.client_email)];
+        const files = draft && draft.generatedFiles;
+        if (!files || Object.keys(files).length === 0) {
+          await updateSubmissionField(ref, { deploy_status: 'no_files' });
+          console.log(`[Deploy ${ref}] No generated files — skipping deploy`);
+          return;
+        }
+        const result = await deployProject({
+          refCode: ref,
+          projectName: data.project_name || ref,
+          files,
+        });
+        await updateSubmissionField(ref, {
+          deploy_status:   'ready',
+          deploy_url:      result.deployUrl,
+          repo_url:        result.repoUrl,
+          screenshot_url:  result.screenshotUrl,
+        });
+      } catch (err) {
+        console.error(`[Deploy ${ref}] Pipeline failed:`, err.message);
+        await updateSubmissionField(ref, { deploy_status: 'failed', deploy_error: err.message });
+      }
+    })();
+  }
+
   const sowText = formatSOW(data, quote);
   const htmlEmail = (title, body) => `<div style="font-family:Arial,sans-serif;max-width:680px;margin:0 auto;background:#0d0d0d;color:#fff;padding:40px;border-radius:12px;">
       <div style="margin-bottom:28px;"><span style="color:#7C3AED;font-size:20px;font-weight:800;">Arrowtrack</span><span style="color:#fff;font-size:20px;font-weight:800;"> Solutions</span></div>
@@ -475,7 +521,7 @@ async function sendEmail(to, subject, html, from = 'Arrowtrack Solutions <hello@
 // ─── Admin API ──────────────────────────────────────────────────
 app.get('/admin/api/submissions', async (req, res) => {
   const db = await readDB();
-  res.json(db.map(r => ({ id:r.id, ref_code:r.ref_code, client_name:r.client_name, client_email:r.client_email, company_name:r.company_name, project_name:r.project_name, quote_total:r.quote_total, status:r.status, created_at:r.created_at })).reverse());
+  res.json(db.map(r => ({ id:r.id, ref_code:r.ref_code, client_name:r.client_name, client_email:r.client_email, company_name:r.company_name, project_name:r.project_name, quote_total:r.quote_total, status:r.status, created_at:r.created_at, deploy_status:r.deploy_status||null })).reverse());
 });
 
 // Abandoned-draft list for the admin dashboard. Returns one row per user with
