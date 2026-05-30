@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.100.1",
+    "@octokit/rest": "^22.0.1",
     "express": "^4.18.3",
     "pg": "^8.21.0"
   }

@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const { Octokit } = require('@octokit/rest');
 const { generateStep, GENERATION_STEPS } = require('./generator');
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -46,6 +47,31 @@ function requireAdminAuth(req, res, next) {
 app.get('/admin/logout', (req, res) => {
   res.set('WWW-Authenticate', 'Basic realm="logged-out"');
   res.status(401).send('Logged out.');
+});
+
+// ─── Config health check (admin only) ───────────────────────────────────────
+app.get('/admin/api/health', requireAdminAuth, async (req, res) => {
+  const checks = {
+    anthropic:   !!process.env.ANTHROPIC_API_KEY,
+    github_token: !!process.env.GITHUB_TOKEN,
+    github_org:   process.env.GITHUB_ORG || null,
+    resend:       !!process.env.RESEND_API_KEY,
+    stripe:       !!process.env.STRIPE_SECRET_KEY,
+    database:     !!process.env.DATABASE_URL,
+    session:      !!process.env.SESSION_SECRET,
+  };
+  // Live GitHub ping — verify token + org actually work
+  if (checks.github_token && checks.github_org) {
+    try {
+      const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
+      await octokit.orgs.get({ org: process.env.GITHUB_ORG });
+      checks.github_live = true;
+    } catch (err) {
+      checks.github_live = false;
+      checks.github_error = err.message;
+    }
+  }
+  res.json(checks);
 });
 
 // Guard the admin page, its static HTML, and the admin API — BEFORE static serving.
