@@ -22,7 +22,7 @@
     header {
       display: flex; align-items: center; justify-content: space-between;
       padding: 20px 40px;
-      background: rgba(13,13,13,0.95);
+      background: #0D0D0D;
       border-bottom: 1px solid rgba(255,255,255,0.06);
       position: sticky; top: 0; z-index: 100;
     }
@@ -84,10 +84,8 @@
     .progress-wrap { background: var(--dark2); border-bottom: 1px solid rgba(255,255,255,0.06); padding: 14px 40px; }
     .progress-inner { max-width: 760px; margin: 0 auto; }
     .progress-labels {
-      display: flex; gap: 6px; margin-bottom: 10px;
-      overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none;
+      display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px;
     }
-    .progress-labels::-webkit-scrollbar { display: none; }
     .progress-label {
       font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
       cursor: pointer; white-space: nowrap; flex-shrink: 0;
@@ -103,7 +101,7 @@
     .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--brand), var(--accent)); border-radius: 2px; transition: width 0.4s ease; }
 
     /* MAIN */
-    main { max-width: 760px; margin: 0 auto; padding: 48px 24px 180px; }
+    main { max-width: 760px; margin: 0 auto; padding: 28px 24px 160px; }
 
     /* STEP */
     .step { display: none; }
