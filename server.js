@@ -40,6 +40,13 @@ function requireAdminAuth(req, res, next) {
   res.set('WWW-Authenticate', 'Basic realm="Arrowtrack Forge Admin", charset="UTF-8"');
   return res.status(401).send('Authentication required.');
 }
+// Logout: returns 401 with a throwaway realm so the browser drops its cached Basic Auth credentials.
+// Must be registered BEFORE the requireAdminAuth middleware so it's reachable without valid creds.
+app.get('/admin/logout', (req, res) => {
+  res.set('WWW-Authenticate', 'Basic realm="logged-out"');
+  res.status(401).send('Logged out.');
+});
+
 // Guard the admin page, its static HTML, and the admin API — BEFORE static serving.
 app.use(['/admin', '/admin.html'], requireAdminAuth);
 

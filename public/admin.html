@@ -18,6 +18,8 @@
     .logo { font-size: 17px; font-weight: 800; }
     .logo span:first-child { color: var(--brand); }
     .admin-badge { font-size: 11px; font-weight: 700; color: var(--accent); background: rgba(34,197,94,0.12); border: 1px solid rgba(34,197,94,0.25); padding: 4px 12px; border-radius: 100px; text-transform: uppercase; letter-spacing: 0.06em; }
+    .logout-btn { font-size: 12px; font-weight: 600; color: var(--gray); background: none; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 5px 12px; cursor: pointer; transition: color 0.2s, border-color 0.2s; }
+    .logout-btn:hover { color: #fff; border-color: rgba(255,255,255,0.3); }
 
     .layout { display: flex; height: calc(100vh - 61px); }
 
@@ -104,7 +106,10 @@
 <body>
 <header>
   <div class="logo"><span>Arrowtrack</span><span> Forge</span></div>
-  <div class="admin-badge">Forge Admin</div>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <div class="admin-badge">Forge Admin</div>
+    <button class="logout-btn" onclick="adminLogout()">Log Out</button>
+  </div>
 </header>
 
 <div class="layout">
@@ -134,6 +139,12 @@
   let submissions = [];
   let activeId = null;
   const money = n => '$' + (Number(n) || 0).toLocaleString();
+
+  async function adminLogout() {
+    // Send a request with intentionally wrong credentials — browser drops the cached Basic Auth creds.
+    try { await fetch('/admin/logout', { headers: { 'Authorization': 'Basic ' + btoa('logout:logout') } }); } catch(e) {}
+    window.location.href = '/';
+  }
 
   async function loadSubmissions() {
     const res = await fetch('/admin/api/submissions');
