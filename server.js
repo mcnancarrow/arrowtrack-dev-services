@@ -922,7 +922,7 @@ app.post('/api/login', async (req, res) => {
 // ─── Progressive app generation ─────────────────────────────────────────────
 // Called after each wizard step. No session required — anonymous users get
 // files back in the response; signed-in users also get them saved to their draft.
-app.post('/api/draft/generate', requireCustomer, async (req, res) => {
+app.post('/api/draft/generate', async (req, res) => {
   const step = Number(req.body.step);
   const formData = req.body.formData || {};
   const clientFiles = req.body.existingFiles || {}; // client sends back what it has
@@ -1004,19 +1004,36 @@ app.post('/api/draft/start', async (req, res) => {
     await writeAccounts(accts);
     setSessionCookie(res, email);
   }
-  // Initialize (or reuse) their draft.
+  // Initialize (or reuse) their draft, merging any wizard progress sent from the client.
   const drafts = await readDrafts();
+  const incomingFormData = req.body.formData || null;
+  const incomingFiles    = req.body.generatedFiles || null;
+  // If wizard formData is supplied the gate fired at Step 7 — land on Step 8.
+  // If no wizard data it's the old Step-1 gate — land on Step 2.
+  const nextStep = incomingFormData ? 8 : 2;
+  const baseFormData = incomingFormData
+    ? { ...incomingFormData, first_name: firstName, client_email: email, client_name: firstName }
+    : { first_name: firstName, client_email: email, client_name: firstName };
+
   if (!drafts[email]) {
     drafts[email] = {
-      formData: { first_name: firstName, client_email: email, client_name: firstName },
-      currentStep: 2,            // they've completed the gate, ready for step 2 of wizard
+      formData: baseFormData,
+      generatedFiles: incomingFiles || {},
+      currentStep: nextStep,
       status: 'in_progress',
       created_at: new Date().toISOString(),
       last_saved_at: new Date().toISOString(),
       reminders_sent: {},
     };
-    await writeDrafts(drafts);
+  } else {
+    // Merge new data into the existing draft so nothing is lost
+    if (incomingFormData) drafts[email].formData = { ...drafts[email].formData, ...baseFormData };
+    if (incomingFiles && Object.keys(incomingFiles).length > 0) {
+      drafts[email].generatedFiles = incomingFiles;
+    }
+    drafts[email].last_saved_at = new Date().toISOString();
   }
+  await writeDrafts(drafts);
   res.json({ success: true, email, name: firstName, draft: drafts[email] });
 });
 

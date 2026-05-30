@@ -772,9 +772,10 @@
   <div class="step" id="step-7">
     <div class="step-header">
       <div class="step-number">Step 7 of 8</div>
-      <h1 class="step-title">Your <span>contact</span> information.</h1>
-      <p class="step-sub">We'll send a copy of your full project brief and quote to your email.</p>
+      <h1 class="step-title">Almost <span>there.</span></h1>
+      <p class="step-sub">Create your free account to see your full quote and track your build — or log in if you're already a member.</p>
     </div>
+    <div id="step7Error" style="display:none;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:8px;padding:10px 14px;font-size:13px;color:#fca5a5;margin-bottom:16px;line-height:1.5;"></div>
     <div class="field-row">
       <div class="field-group">
         <label>First Name <span>*</span></label>
@@ -1164,6 +1165,7 @@
     const pay = document.getElementById('btnPay');
     back.style.display = currentStep > 1 ? 'block' : 'none';
     next.style.display = currentStep < TOTAL_STEPS ? 'block' : 'none';
+    next.textContent = (currentStep === 7 && !__isSignedIn) ? 'Create Account & See Your Quote →' : 'Continue →';
     sub.style.display = currentStep === TOTAL_STEPS ? 'block' : 'none';
     pay.style.display = 'none'; // review-first: no instant payment; link sent after human review
 
@@ -1187,8 +1189,8 @@
   function nextStep() {
     autoSave();
     const completedStep = currentStep;
-    // Gate: completing Step 1 while not signed in → show account modal, don't advance yet
-    if (completedStep === 1 && !__isSignedIn) { showGateModal(); return; }
+    // Gate: completing Step 7 while not signed in → create account inline, don't advance yet
+    if (completedStep === 7 && !__isSignedIn) { doStep7Gate(); return; }
     if (currentStep < TOTAL_STEPS) showStep(currentStep + 1);
     triggerGeneration(completedStep);
   }
@@ -1363,6 +1365,78 @@
   // ─── Session state ────────────────────────────────────────────────────────
   let __isSignedIn = false;
   let __userName   = '';
+
+  // ─── Step 7 inline account creation gate ─────────────────────────────────
+  function showStep7Error(msg) {
+    const el = document.getElementById('step7Error');
+    el.innerHTML = msg;
+    el.style.display = 'block';
+  }
+  function clearStep7Error() {
+    const el = document.getElementById('step7Error');
+    el.textContent = '';
+    el.style.display = 'none';
+  }
+
+  async function doStep7Gate() {
+    clearStep7Error();
+    collectFields();
+    const firstName = (document.getElementById('first_name').value || '').trim();
+    const email     = (document.getElementById('client_email').value || '').trim();
+    const password  = (document.getElementById('account_password').value || '');
+    if (!firstName) { showStep7Error('Please enter your first name.'); document.getElementById('first_name').focus(); return; }
+    if (!email || !email.includes('@')) { showStep7Error('Please enter a valid email address.'); document.getElementById('client_email').focus(); return; }
+    if (!password || password.length < 6) { showStep7Error('Please choose a password of at least 6 characters.'); document.getElementById('account_password').focus(); return; }
+
+    const btn = document.getElementById('btnNext');
+    const origText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Creating your account…';
+
+    try {
+      const res = await fetch('/api/draft/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          first_name: firstName,
+          email,
+          password,
+          formData: { ...formData, first_name: firstName, client_email: email, client_name: firstName },
+          generatedFiles,
+        }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (res.status === 409) {
+          showStep7Error(
+            'That email already has an account. Check your password, or ' +
+            '<a href="#" style="color:#a78bfa;text-decoration:underline;" ' +
+            'onclick="event.preventDefault();gateTab(\'login\');showGateModal();">log in instead →</a>'
+          );
+        } else {
+          showStep7Error(data.error || 'Could not create account. Please try again.');
+        }
+        btn.disabled = false;
+        btn.textContent = origText;
+        return;
+      }
+
+      // Success — account created or logged in with matching password
+      __isSignedIn = true;
+      __userName = firstName;
+      formData.client_email = email;
+      formData.client_name  = firstName;
+      clearStep7Error();
+      showStep(8);
+      triggerGeneration(7);
+    } catch (err) {
+      showStep7Error('Network error. Please try again.');
+      btn.disabled = false;
+      btn.textContent = origText;
+    }
+  }
 
   // ─── Gate modal ───────────────────────────────────────────────────────────
   function showGateModal() {
