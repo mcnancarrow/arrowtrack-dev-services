@@ -770,6 +770,33 @@ app.post('/admin/api/submissions/:id/regenerate-step', requireAdminAuth, async (
   }
 });
 
+// ─── Admin: regenerate ALL steps from scratch (fire-and-forget, poll regen_status) ──
+app.post('/admin/api/submissions/:id/regenerate-all', requireAdminAuth, async (req, res) => {
+  const db = await readDB();
+  const row = db.find(r => r.id == req.params.id);
+  if (!row) return res.status(404).json({ error: 'Not found.' });
+  if (row.regen_status === 'running') return res.status(409).json({ error: 'Regeneration already in progress.' });
+  await updateSubmissionField(row.ref_code, { regen_status: 'running' });
+  res.json({ success: true, status: 'started' });
+  // Fire-and-forget — stays alive past any proxy timeout
+  (async () => {
+    const formData = row.data || {};
+    let files = {};
+    try {
+      for (const step of GENERATION_STEPS) {
+        await updateSubmissionField(row.ref_code, { regen_status: `running:${step}` });
+        const result = await generateStep(step, formData, files);
+        files = Object.assign({}, files, result.files || {});
+      }
+      await updateSubmissionField(row.ref_code, { generated_files: files, regen_status: 'done' });
+      console.log(`[regen-all ${row.ref_code}] Complete — ${Object.keys(files).length} file(s)`);
+    } catch (err) {
+      console.error(`[regen-all ${row.ref_code}]`, err.message);
+      await updateSubmissionField(row.ref_code, { regen_status: `error:${err.message}` });
+    }
+  })();
+});
+
 // ─── Admin: save manually edited files ──────────────────────────────────────
 app.post('/admin/api/submissions/:id/save-files', requireAdminAuth, async (req, res) => {
   const { files } = req.body;

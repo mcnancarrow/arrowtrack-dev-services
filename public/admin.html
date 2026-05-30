@@ -232,6 +232,19 @@
       return '<button class="step-btn" onclick="regenerateStep(' + id + ',' + n + ',this)">' + labels[n] + '</button>';
     }).join('');
     const hasFiles = !!(s.generated_files && Object.keys(s.generated_files).length > 0);
+    // Regenerate-All button — reflects live regen_status from server
+    var regenAllLabel = '🔄 Regenerate All';
+    var regenAllDisabled = '';
+    if (s.regen_status && s.regen_status.startsWith('running')) {
+      var _rStepNm = {1:'Foundation',2:'Platforms',3:'Features',4:'Screens',5:'Design',7:'Content'};
+      var _rStep   = Number((s.regen_status.split(':'))[1]);
+      var _rIdx    = [1,2,3,4,5,7].indexOf(_rStep);
+      regenAllLabel   = '⏳ Step ' + (_rIdx + 1) + '/6: ' + (_rStepNm[_rStep] || 'Running…');
+      regenAllDisabled = ' disabled';
+    }
+    const regenAllBtn = '<button class="action-btn btn-delete" id="regenAllBtn-' + id + '"' + regenAllDisabled +
+      ' style="font-size:13px;" onclick="regenerateAll(' + id + ',this)">' + regenAllLabel + '</button>';
+
     const reviewPanelHtml = s.status === 'pending_review' ? (
       '<div class="review-panel">' +
         '<div class="review-panel-title">⚡ Human Review — AI Build Ready</div>' +
@@ -241,6 +254,7 @@
           '<div style="display:flex;gap:8px;flex-wrap:wrap;">' + stepBtns + '</div>' +
         '</div>' +
         '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">' +
+          regenAllBtn +
           '<button class="action-btn btn-active" style="font-size:13px;" onclick="redeployApp(' + id + ')">🚀 Redeploy Updated App</button>' +
           '<button class="action-btn btn-approve" onclick="sendPaymentLink(' + id + ')">✓ Approve &amp; Send Payment Link</button>' +
         '</div>' +
@@ -442,6 +456,11 @@
     `;
     // Populate file editor AFTER innerHTML is set — textarea.value bypasses template-literal escaping
     if (hasFiles) populateFileEditor(id, s.generated_files);
+    // If a regen-all is already running (user navigated away and back), resume polling
+    if (s.regen_status && s.regen_status.startsWith('running')) {
+      var _regenBtn = document.getElementById('regenAllBtn-' + id);
+      if (_regenBtn) pollRegenStatus(id, _regenBtn);
+    }
   }
 
   async function updateStatus(id, status) {
@@ -503,6 +522,66 @@
     await fetch(`/admin/api/submissions/${id}/domain-active`, { method: 'POST' });
     loadDetail(id);
     loadSubmissions();
+  }
+
+  // ── Regenerate All ───────────────────────────────────────────────────────
+  async function regenerateAll(id, btn) {
+    if (!confirm('Regenerate ALL 6 AI steps from scratch?\n\nThis replaces every generated file with a completely fresh build.\nTakes ~60–90 seconds.')) return;
+    btn.disabled = true;
+    var origText = btn.textContent;
+    btn.textContent = '⏳ Starting…';
+    try {
+      var res = await fetch('/admin/api/submissions/' + id + '/regenerate-all', { method: 'POST' });
+      var data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'Failed to start regeneration.');
+        btn.textContent = origText;
+        btn.disabled = false;
+        return;
+      }
+      pollRegenStatus(id, btn);
+    } catch (err) {
+      alert('Network error: ' + err.message);
+      btn.textContent = origText;
+      btn.disabled = false;
+    }
+  }
+
+  function pollRegenStatus(id, btn) {
+    var stepNames = {1:'Foundation',2:'Platforms',3:'Features',4:'Screens',5:'Design',7:'Content'};
+    var steps = [1,2,3,4,5,7];
+    var interval = setInterval(async function() {
+      // Stop if button was removed from DOM (user switched to another submission)
+      if (btn && !document.contains(btn)) { clearInterval(interval); return; }
+      try {
+        var res = await fetch('/admin/api/submissions/' + id);
+        var row = await res.json();
+        var st = row.regen_status || '';
+        if (st.startsWith('running:')) {
+          var step = Number(st.split(':')[1]);
+          var idx  = steps.indexOf(step);
+          if (btn) btn.textContent = '⏳ Step ' + (idx + 1) + '/6: ' + (stepNames[step] || step);
+        } else if (st === 'done') {
+          clearInterval(interval);
+          if (row.generated_files) {
+            window._forgeFiles = window._forgeFiles || {};
+            window._forgeFiles[id] = row.generated_files;
+            populateFileEditor(id, row.generated_files);
+          }
+          var fileCount = Object.keys(row.generated_files || {}).length;
+          if (btn) {
+            btn.textContent = '✓ Done — ' + fileCount + ' file(s) ready';
+            setTimeout(function() {
+              if (btn && document.contains(btn)) { btn.textContent = '🔄 Regenerate All'; btn.disabled = false; }
+            }, 4000);
+          }
+        } else if (st.startsWith('error:')) {
+          clearInterval(interval);
+          alert('Regeneration failed: ' + st.split(':').slice(1).join(':'));
+          if (btn && document.contains(btn)) { btn.textContent = '🔄 Regenerate All'; btn.disabled = false; }
+        }
+      } catch { /* transient network error — keep polling */ }
+    }, 3000);
   }
 
   // ── File editor helpers ──────────────────────────────────────────────────
