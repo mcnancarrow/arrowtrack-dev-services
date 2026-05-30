@@ -52,6 +52,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 // handlers stay identical — only the backend swaps.
 const DB_FILE = path.join(__dirname, 'submissions.json');
 const ACCT_FILE = path.join(__dirname, 'accounts.json');
+const DRAFTS_FILE = path.join(__dirname, 'drafts.json');
 const USE_PG = !!process.env.DATABASE_URL;
 let pgPool = null;
 if (USE_PG) {
@@ -62,13 +63,13 @@ if (USE_PG) {
   });
 }
 
-async function getStore(key, file) {
+async function getStore(key, file, defaultValue = []) {
   if (USE_PG) {
     const { rows } = await pgPool.query('SELECT value FROM forge_kv WHERE key = $1', [key]);
-    return rows.length ? rows[0].value : [];
+    return rows.length ? rows[0].value : defaultValue;
   }
-  if (!fs.existsSync(file)) fs.writeFileSync(file, '[]');
-  try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return []; }
+  if (!fs.existsSync(file)) fs.writeFileSync(file, JSON.stringify(defaultValue));
+  try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return defaultValue; }
 }
 async function setStore(key, file, data) {
   if (USE_PG) {
@@ -85,16 +86,27 @@ const readDB        = ()  => getStore('submissions', DB_FILE);
 const writeDB       = (d) => setStore('submissions', DB_FILE, d);
 const readAccounts  = ()  => getStore('accounts', ACCT_FILE);
 const writeAccounts = (d) => setStore('accounts', ACCT_FILE, d);
+// Drafts are stored as a single JSON object keyed by email — one row per user's
+// in-progress brief. Allows us to update each user's draft independently from
+// the rest of the funnel without race conditions on busy projects.
+const readDrafts    = ()  => getStore('drafts', DRAFTS_FILE, {});
+const writeDrafts   = (d) => setStore('drafts', DRAFTS_FILE, d);
 const genRef = () => 'SOW-' + Date.now().toString(36).toUpperCase();
 
 // Create the table on boot and, if it's empty, seed from any existing JSON files.
 async function initStorage() {
   if (!USE_PG) { console.log('Storage: local JSON files (set DATABASE_URL for Railway Postgres)'); return; }
   await pgPool.query("CREATE TABLE IF NOT EXISTS forge_kv (key TEXT PRIMARY KEY, value JSONB NOT NULL DEFAULT '[]')");
-  for (const [key, file] of [['submissions', DB_FILE], ['accounts', ACCT_FILE]]) {
+  // Each KV row has its own appropriate default (array for collections, object for drafts).
+  const seeds = [
+    ['submissions', DB_FILE,    () => []],
+    ['accounts',    ACCT_FILE,  () => []],
+    ['drafts',      DRAFTS_FILE, () => ({})],
+  ];
+  for (const [key, file, defaultFactory] of seeds) {
     const { rows } = await pgPool.query('SELECT 1 FROM forge_kv WHERE key = $1', [key]);
     if (!rows.length) {
-      let seed = [];
+      let seed = defaultFactory();
       if (fs.existsSync(file)) { try { seed = JSON.parse(fs.readFileSync(file, 'utf8')); } catch {} }
       await pgPool.query('INSERT INTO forge_kv (key, value) VALUES ($1, $2)', [key, JSON.stringify(seed)]);
     }
@@ -333,6 +345,22 @@ app.post('/api/submit', async (req, res) => {
     status: 'new', created_at: new Date().toISOString(), data });
   await writeDB(db);
 
+  // Promote the in-progress draft to a finalized submission: mark it submitted
+  // and stop reminder emails. We keep the draft row for audit but flag it so
+  // it stops appearing in the "abandoned" admin view.
+  if (data.client_email) {
+    try {
+      const drafts = await readDrafts();
+      const key = normEmail(data.client_email);
+      if (drafts[key]) {
+        drafts[key].status = 'submitted';
+        drafts[key].submitted_at = new Date().toISOString();
+        drafts[key].ref_code = ref;
+        await writeDrafts(drafts);
+      }
+    } catch (err) { console.error('Draft promotion failed (non-fatal):', err); }
+  }
+
   const sowText = formatSOW(data, quote);
   const htmlEmail = (title, body) => `<div style="font-family:Arial,sans-serif;max-width:680px;margin:0 auto;background:#0d0d0d;color:#fff;padding:40px;border-radius:12px;">
       <div style="margin-bottom:28px;"><span style="color:#7C3AED;font-size:20px;font-weight:800;">Arrowtrack</span><span style="color:#fff;font-size:20px;font-weight:800;"> Solutions</span></div>
@@ -415,6 +443,85 @@ app.get('/admin/api/submissions', async (req, res) => {
   const db = await readDB();
   res.json(db.map(r => ({ id:r.id, ref_code:r.ref_code, client_name:r.client_name, client_email:r.client_email, company_name:r.company_name, project_name:r.project_name, quote_total:r.quote_total, status:r.status, created_at:r.created_at })).reverse());
 });
+
+// Abandoned-draft list for the admin dashboard. Returns one row per user with
+// an in-progress draft (not yet submitted), most-recently-touched first, so the
+// owner can see who's mid-funnel and follow up.
+app.get('/admin/api/drafts', async (req, res) => {
+  const drafts = await readDrafts();
+  const rows = Object.entries(drafts)
+    .filter(([_, d]) => d && d.status === 'in_progress')
+    .map(([email, d]) => {
+      const fd = d.formData || {};
+      const q = (typeof computeQuote === 'function') ? computeQuote(fd) : { total: 0 };
+      return {
+        email,
+        name: fd.client_name || fd.first_name || '',
+        company_name: fd.company_name || '',
+        project_name: fd.project_name || '',
+        currentStep: d.currentStep || null,
+        last_saved_at: d.last_saved_at,
+        created_at: d.created_at,
+        quote_total: q.total || 0,
+        reminders_sent: d.reminders_sent || {},
+      };
+    })
+    .sort((a, b) => new Date(b.last_saved_at) - new Date(a.last_saved_at));
+  res.json(rows);
+});
+
+// CRON-triggered reminder mailer. Protected by CRON_SECRET so only a real cron
+// (Railway scheduled job, cron-job.org, etc.) can hit it. Sends a single email
+// at each interval bucket (24h, 72h, 7d) per draft and tracks what's been sent.
+app.post('/api/cron/draft-reminders', async (req, res) => {
+  const CRON_SECRET = process.env.CRON_SECRET;
+  if (!CRON_SECRET || (req.headers['x-cron-secret'] !== CRON_SECRET && req.query.secret !== CRON_SECRET)) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  const RESEND_API_KEY = process.env.RESEND_API_KEY;
+  if (!RESEND_API_KEY) return res.json({ skipped: true, reason: 'RESEND_API_KEY not configured' });
+  const drafts = await readDrafts();
+  const origin = `${req.protocol}://${req.get('host')}`;
+  const now = Date.now();
+  const buckets = [
+    { id: '24h', minHours: 24,  maxHours: 72,  subject: 'You started a project brief — pick up where you left off' },
+    { id: '72h', minHours: 72,  maxHours: 168, subject: 'Still interested? Your saved Forge brief is waiting' },
+    { id: '7d',  minHours: 168, maxHours: 720, subject: 'Final reminder — your Forge project brief' },
+  ];
+  let sent = 0, considered = 0;
+  for (const [email, d] of Object.entries(drafts)) {
+    if (!d || d.status !== 'in_progress') continue;
+    considered++;
+    const ageHours = (now - new Date(d.last_saved_at || d.created_at).getTime()) / 3.6e6;
+    d.reminders_sent = d.reminders_sent || {};
+    for (const b of buckets) {
+      if (ageHours >= b.minHours && ageHours < b.maxHours && !d.reminders_sent[b.id]) {
+        const proj = (d.formData && d.formData.project_name) || 'your project';
+        const html = `<div style="font-family:Arial,sans-serif;max-width:680px;margin:0 auto;background:#0d0d0d;color:#fff;padding:40px;border-radius:12px;">
+          <div style="margin-bottom:28px;"><span style="color:#7C3AED;font-size:20px;font-weight:800;">Arrowtrack</span><span style="color:#fff;font-size:20px;font-weight:800;"> Forge</span></div>
+          <h2 style="color:#22C55E;margin-bottom:20px;">Your project brief is waiting</h2>
+          <p style="color:#aaa;margin-bottom:18px;">Hi ${(d.formData && d.formData.first_name) || 'there'} — you started a brief for <strong style="color:#fff;">${proj}</strong> and saved partway through. Your progress is safe.</p>
+          <p style="margin:26px 0;"><a href="${origin}/build" style="background:#7C3AED;color:#fff;text-decoration:none;padding:14px 28px;border-radius:8px;font-weight:700;display:inline-block;">Resume Your Project →</a></p>
+          <p style="color:#777;font-size:13px;">Log in with the same email and password you used to start. We auto-save every step, so you can pick up exactly where you left off.</p>
+        </div>`;
+        try {
+          const r = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ from: 'Arrowtrack Forge <hello@delib.io>', to: email, subject: b.subject, html }),
+          });
+          if (r.ok) {
+            d.reminders_sent[b.id] = new Date().toISOString();
+            sent++;
+          }
+        } catch (err) { console.error('Reminder send failed for', email, err); }
+        break; // only one bucket per draft per run
+      }
+    }
+  }
+  await writeDrafts(drafts);
+  res.json({ considered, sent });
+});
 app.get('/admin/api/submissions/:id', async (req, res) => {
   const row = (await readDB()).find(r => r.id == req.params.id);
   if (!row) return res.status(404).json({ error: 'Not found' });
@@ -467,6 +574,90 @@ app.post('/api/login', async (req, res) => {
   }
   setSessionCookie(res, email);
   res.json({ success: true, name: acct.name, email });
+});
+
+// ─── Draft funnel: progressive save so half-finished briefs aren't lost ─
+// Flow:
+//   POST /api/draft/start   — Step-1 gate: name + email + password →
+//                             creates account (or rejects if email already exists with diff password)
+//                             creates empty draft, sets session
+//   POST /api/draft/resume  — returning user: email + password → log in,
+//                             load existing draft if any
+//   GET  /api/draft/load    — auth'd: fetch the current user's draft
+//   POST /api/draft/save    — auth'd: persist formData + currentStep on every Continue
+// /api/submit later finds the user's draft and promotes it to a submission.
+
+app.post('/api/draft/start', async (req, res) => {
+  const email = normEmail(req.body.email);
+  const firstName = String(req.body.first_name || '').trim();
+  const password = String(req.body.password || '');
+  if (!email || !firstName || !password) {
+    return res.status(400).json({ error: 'Name, email, and password are all required.' });
+  }
+  if (!email.includes('@') || password.length < 6) {
+    return res.status(400).json({ error: 'Please enter a valid email and a password of at least 6 characters.' });
+  }
+  const accts = await readAccounts();
+  const existing = accts.find(a => a.email === email);
+  if (existing) {
+    // Treat as a login attempt — if the password matches, log them in. If not, reject.
+    if (!verifyPassword(password, existing.password)) {
+      return res.status(409).json({ error: 'An account with that email already exists. Please use Resume to log in, or pick a different email.' });
+    }
+    setSessionCookie(res, email);
+  } else {
+    accts.push({ email, name: firstName, password: hashPassword(password), created_at: new Date().toISOString() });
+    await writeAccounts(accts);
+    setSessionCookie(res, email);
+  }
+  // Initialize (or reuse) their draft.
+  const drafts = await readDrafts();
+  if (!drafts[email]) {
+    drafts[email] = {
+      formData: { first_name: firstName, client_email: email, client_name: firstName },
+      currentStep: 2,            // they've completed the gate, ready for step 2 of wizard
+      status: 'in_progress',
+      created_at: new Date().toISOString(),
+      last_saved_at: new Date().toISOString(),
+      reminders_sent: {},
+    };
+    await writeDrafts(drafts);
+  }
+  res.json({ success: true, email, name: firstName, draft: drafts[email] });
+});
+
+app.post('/api/draft/resume', async (req, res) => {
+  const email = normEmail(req.body.email);
+  const password = String(req.body.password || '');
+  const acct = (await readAccounts()).find(a => a.email === email);
+  if (!acct || !verifyPassword(password, acct.password)) {
+    return res.status(401).json({ error: 'Invalid email or password.' });
+  }
+  setSessionCookie(res, email);
+  const drafts = await readDrafts();
+  res.json({ success: true, email, name: acct.name, draft: drafts[email] || null });
+});
+
+app.get('/api/draft/load', requireCustomer, async (req, res) => {
+  const drafts = await readDrafts();
+  res.json({ draft: drafts[req.customerEmail] || null });
+});
+
+app.post('/api/draft/save', requireCustomer, async (req, res) => {
+  const drafts = await readDrafts();
+  const existing = drafts[req.customerEmail] || {
+    status: 'in_progress',
+    created_at: new Date().toISOString(),
+    reminders_sent: {},
+  };
+  drafts[req.customerEmail] = {
+    ...existing,
+    formData: req.body.formData || existing.formData || {},
+    currentStep: Number(req.body.currentStep) || existing.currentStep || 2,
+    last_saved_at: new Date().toISOString(),
+  };
+  await writeDrafts(drafts);
+  res.json({ success: true, last_saved_at: drafts[req.customerEmail].last_saved_at });
 });
 
 app.post('/api/logout', (req, res) => { clearSessionCookie(res); res.json({ success: true }); });
