@@ -1095,12 +1095,24 @@ app.get('/api/my-projects', requireCustomer, async (req, res) => {
       deploy_status:      r.deploy_status || null,
       deploy_url:         r.deploy_url || null,
       screenshot_url:     r.screenshot_url || null,
+      file_names:         Object.keys(r.generated_files || {}),
       custom_domain:      r.custom_domain || null,
       domain_status:      r.domain_status || null,
       domain_dns_records: r.domain_dns_records || null,
       data: r.data
     };
   }));
+});
+
+// Serve a single generated file to the authenticated customer (for in-portal preview)
+app.get('/api/my-projects/:ref/file', requireCustomer, async (req, res) => {
+  const row = (await readDB()).find(r => r.ref_code === req.params.ref && normEmail(r.client_email) === req.customerEmail);
+  if (!row) return res.status(404).json({ error: 'Not found' });
+  const name = req.query.name;
+  if (!name || !row.generated_files || !row.generated_files[name]) {
+    return res.status(404).json({ error: 'File not found' });
+  }
+  res.json({ content: row.generated_files[name] });
 });
 
 // Pay the remaining balance on a delivered project (customer's own Stripe checkout)

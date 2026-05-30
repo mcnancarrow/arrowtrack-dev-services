@@ -110,6 +110,17 @@
     .pending-text { font-size: 15px; font-weight: 700; color: #bbb; margin-bottom: 6px; }
     .pending-sub { font-size: 13px; color: #666; line-height: 1.5; }
 
+    /* Page tabs */
+    .preview-tabs { display: flex; gap: 4px; margin-bottom: 12px; flex-wrap: wrap; }
+    .preview-tab { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #888; border-radius: 8px; padding: 7px 14px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+    .preview-tab:hover { background: rgba(255,255,255,0.09); color: #ccc; }
+    .preview-tab.active { background: rgba(124,58,237,0.2); border-color: rgba(124,58,237,0.5); color: #c4b5fd; }
+    .preview-frame-wrap { border-radius: 10px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); background: #fff; margin-bottom: 14px; position: relative; }
+    .preview-iframe { width: 100%; height: 500px; border: none; display: block; }
+    .preview-frame-loading { position: absolute; inset: 0; background: rgba(13,13,13,0.7); display: flex; align-items: center; justify-content: center; font-size: 13px; color: #888; font-weight: 600; pointer-events: none; transition: opacity 0.3s; }
+    .preview-frame-loading.hidden { opacity: 0; }
+    .preview-note { font-size: 12px; color: #666; margin-bottom: 12px; line-height: 1.5; }
+
     /* Live btn */
     .live-btn { display: inline-flex; align-items: center; gap: 8px; background: var(--accent); color: #000; border: none; border-radius: 10px; padding: 11px 22px; font-size: 14px; font-weight: 800; cursor: pointer; text-decoration: none; transition: opacity 0.2s; }
     .live-btn:hover { opacity: 0.88; }
@@ -178,43 +189,80 @@
     const showBalance = p.balance_due > 0 && !balancePaid && (p.status === 'active' || p.status === 'complete');
     const showDeposit = p.status === 'approved' && !depositPaid && p.quote_deposit > 0;
 
-    // ── Preview panel — 3 states ──────────────────────────────────
+    // ── Preview panel ─────────────────────────────────────────────
+    // Primary signal: file_names (have we generated files?)
+    // Secondary: deploy_status (are they live yet?)
+    const fileNames = p.file_names || [];
+    const isDeployed = (p.deploy_status === 'ready') && !!p.deploy_url;
+    const isBuilding = p.deploy_status === 'deploying';
+    const ref = p.ref_code;
+
     let previewSection = '';
-    if (p.deploy_status === 'ready' || p.deploy_url) {
-      // State 1: App is live
-      const hasDomain = !!(p.custom_domain && p.domain_status);
+    if (fileNames.length > 0) {
+      // ── Files exist: show tabbed iframe preview ─────────────────
+      const hasDomain   = !!(p.custom_domain && p.domain_status);
       const domainActive = p.domain_status === 'active';
-      const liveUrl = domainActive ? 'https://' + p.custom_domain : p.deploy_url;
-      const dnsRows = (p.domain_dns_records || []).map(function(r) {
+      const liveBase    = isDeployed ? (domainActive ? 'https://' + p.custom_domain : p.deploy_url) : null;
+      const dnsRows     = (p.domain_dns_records || []).map(function(r) {
         return '<tr><td class="dns-type">' + r.type + '</td><td class="dns-host">' + r.host + '</td><td class="dns-val">' + r.value + '</td><td class="dns-ttl">' + r.ttl + '</td></tr>';
       }).join('');
-      const shotHtml = p.screenshot_url
-        ? '<div class="preview-shot-wrap" onclick="window.open(\'' + liveUrl + '\',\'_blank\')">'
-            + '<img class="preview-shot" src="' + p.screenshot_url + '" alt="App preview" loading="lazy">'
-            + '<div class="preview-shot-overlay"><a class="preview-open-btn" href="' + liveUrl + '" target="_blank">⛶ Open Full Screen →</a></div>'
-            + '</div>'
-        : '';
+
+      // Tab bar — data attrs carry all the info, no inline JS escaping needed
+      const tabs = fileNames.map(function(name, i) {
+        return '<button class="preview-tab' + (i === 0 ? ' active' : '') + '"'
+          + ' data-ref="' + ref + '"'
+          + ' data-file="' + name + '"'
+          + (liveBase ? ' data-deploy="' + liveBase + '"' : '')
+          + ' onclick="handlePreviewTab(this)">'
+          + fileLabel(name)
+          + '</button>';
+      }).join('');
+
       const domainBadge = domainActive
         ? '<span class="domain-active-tag">✓ Custom Domain Active</span>'
         : (p.domain_status === 'pending_dns'
             ? '<span style="font-size:11px;font-weight:700;background:rgba(251,191,36,0.12);color:#fcd34d;border:1px solid rgba(251,191,36,0.2);padding:3px 10px;border-radius:100px;">⏳ Domain Pending DNS</span>'
             : '');
-      const urlBar = '<div class="preview-url-bar">'
-        + '<a class="live-btn" href="' + liveUrl + '" target="_blank">🌐 Open Your App →</a>'
-        + (hasDomain && !domainActive ? '<span style="font-size:13px;color:#888;">Preview: <a href="' + p.deploy_url + '" target="_blank" style="color:#a78bfa;">' + p.deploy_url + '</a></span>' : '')
-        + '</div>';
+
+      const panelTitle = isDeployed
+        ? '🚀 Your Live App ' + domainBadge
+        : (isBuilding
+            ? '⚡ Building — Preview Below'
+            : '🔍 Early Preview — Our team is reviewing this build');
+
+      const panelClass = isDeployed ? 'ready' : (isBuilding ? 'building' : 'pending');
+
+      const noteHtml = !isDeployed
+        ? '<div class="preview-note">This is a work-in-progress preview. Our team will review and refine before final delivery.</div>'
+        : '';
+
+      const urlBar = isDeployed
+        ? '<div class="preview-url-bar">'
+            + '<a class="live-btn" href="' + liveBase + '" target="_blank">🌐 Open Your App →</a>'
+            + (hasDomain && !domainActive ? '<span style="font-size:13px;color:#888;"> Preview: <a href="' + p.deploy_url + '" target="_blank" style="color:#a78bfa;">' + p.deploy_url + '</a></span>' : '')
+            + '</div>'
+        : '';
+
       const dnsBlock = (hasDomain && !domainActive && dnsRows)
         ? '<div class="dns-block"><div class="dns-title">DNS Setup — add these records at your domain registrar</div>'
             + '<table class="dns-table"><thead><tr><th>Type</th><th>Host</th><th>Value</th><th>TTL</th></tr></thead><tbody>' + dnsRows + '</tbody></table>'
-            + '<p class="dns-note">Add these records at your registrar (GoDaddy, Namecheap, etc.). DNS usually propagates within 5–60 minutes. Once live, your app will be accessible at <strong style="color:#fff;">' + p.custom_domain + '</strong>.</p>'
+            + '<p class="dns-note">Add these records at your registrar (GoDaddy, Namecheap, etc.). DNS usually propagates within 5–60 minutes.</p>'
             + '</div>'
         : '';
-      previewSection = '<div class="preview-panel ready">'
-        + '<div class="preview-panel-title">🚀 Your Live App ' + domainBadge + '</div>'
-        + shotHtml + urlBar + dnsBlock
+
+      previewSection = '<div class="preview-panel ' + panelClass + '">'
+        + '<div class="preview-panel-title">' + panelTitle + '</div>'
+        + noteHtml
+        + '<div class="preview-tabs">' + tabs + '</div>'
+        + '<div class="preview-frame-wrap">'
+        +   '<iframe id="preview-iframe-' + ref + '" class="preview-iframe" src="about:blank" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" onload="iframeLoaded(\'' + ref + '\')"></iframe>'
+        +   '<div id="preview-loading-' + ref + '" class="preview-frame-loading">Loading preview…</div>'
+        + '</div>'
+        + urlBar + dnsBlock
         + '</div>';
-    } else if (p.deploy_status === 'deploying') {
-      // State 2: Deploy in progress
+
+    } else if (isBuilding) {
+      // ── No files yet, deploy kicked off ────────────────────────
       previewSection = '<div class="preview-panel building">'
         + '<div class="preview-panel-title">⚡ Building Your App</div>'
         + '<div class="building-body">'
@@ -226,7 +274,7 @@
         + '</div>'
         + '</div>';
     } else {
-      // State 3: In review / no deploy yet
+      // ── Nothing yet ────────────────────────────────────────────
       previewSection = '<div class="preview-panel pending">'
         + '<div class="preview-panel-title">🔍 Your App Preview</div>'
         + '<div class="pending-body">'
@@ -304,6 +352,71 @@
     } catch (err) { btn.disabled = false; btn.textContent = 'Pay Deposit →'; alert('Network error.'); }
   }
 
+  // ── Page-preview helpers ──────────────────────────────────────
+  // Convert filenames to readable tab labels
+  function fileLabel(name) {
+    var map = { 'index.html':'Home', 'about.html':'About', 'contact.html':'Contact',
+                'terms.html':'Terms & Privacy', 'privacy.html':'Privacy',
+                'services.html':'Services', 'pricing.html':'Pricing', 'faq.html':'FAQ',
+                'login.html':'Login', 'signup.html':'Sign Up', 'dashboard.html':'Dashboard' };
+    return map[name] || name.replace('.html','').replace(/-/g,' ').replace(/\b\w/g, function(c){ return c.toUpperCase(); });
+  }
+
+  // Blob URL cache: key = ref+':'+filename → blobUrl
+  var _blobCache = {};
+
+  function iframeLoaded(ref) {
+    var loader = document.getElementById('preview-loading-' + ref);
+    if (loader) loader.classList.add('hidden');
+  }
+
+  function handlePreviewTab(btn) {
+    var ref      = btn.dataset.ref;
+    var file     = btn.dataset.file;
+    var deployBase = btn.dataset.deploy || '';
+    // Mark tab active
+    var allTabs = document.querySelectorAll('.preview-tab[data-ref="' + ref + '"]');
+    allTabs.forEach(function(t){ t.classList.remove('active'); });
+    btn.classList.add('active');
+    // Show loading overlay
+    var loader = document.getElementById('preview-loading-' + ref);
+    if (loader) { loader.textContent = 'Loading preview…'; loader.classList.remove('hidden'); }
+    var iframe = document.getElementById('preview-iframe-' + ref);
+    if (!iframe) return;
+    if (deployBase) {
+      // Deployed: load from Netlify directly
+      iframe.src = deployBase.replace(/\/$/, '') + '/' + file;
+    } else {
+      // Pre-deploy: fetch raw file → blob URL
+      var cacheKey = ref + ':' + file;
+      if (_blobCache[cacheKey]) {
+        iframe.src = _blobCache[cacheKey];
+        return;
+      }
+      iframe.src = 'about:blank';
+      fetch('/api/my-projects/' + encodeURIComponent(ref) + '/file?name=' + encodeURIComponent(file))
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+          if (!data.content) return;
+          var blob = new Blob([data.content], { type: 'text/html' });
+          var url  = URL.createObjectURL(blob);
+          _blobCache[cacheKey] = url;
+          iframe.src = url;
+        })
+        .catch(function(){ if (loader) { loader.textContent = 'Preview unavailable.'; } });
+    }
+  }
+
+  // Auto-load the first tab for every project card after render
+  function initPreviewTabs(projects) {
+    projects.forEach(function(p) {
+      var fileNames = p.file_names || [];
+      if (!fileNames.length) return;
+      var firstTab = document.querySelector('.preview-tab[data-ref="' + p.ref_code + '"]');
+      if (firstTab) handlePreviewTab(firstTab);
+    });
+  }
+
   // Auto-refresh every 8s while any project is still deploying
   let _refreshTimer = null;
   function scheduleRefresh(projects) {
@@ -317,6 +430,8 @@
         if (!r.ok) return;
         const updated = await r.json();
         document.getElementById('content').innerHTML = updated.map(projectCard).join('');
+        _blobCache = {}; // clear blob cache on refresh (new files may have arrived)
+        initPreviewTabs(updated);
         scheduleRefresh(updated); // keep polling until all deploys settle
       } catch (e) { /* network blip — try again next cycle */ scheduleRefresh(projects); }
     }, 8000);
@@ -344,7 +459,8 @@
       return;
     }
     content.innerHTML = projects.map(projectCard).join('');
-    scheduleRefresh(projects); // kick off auto-refresh if anything is deploying
+    initPreviewTabs(projects);   // auto-load first tab for each project
+    scheduleRefresh(projects);   // kick off auto-refresh if anything is deploying
   }
 
   load();
