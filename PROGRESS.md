@@ -119,11 +119,23 @@ distinct while on-brand. Fonts: **Saira Condensed** (wordmark/headings) + **Inte
   `takeScreenshot`) — future wizard submissions get working screenshots automatically.
 - Noted: **regenerate** (updates stored preview) and **redeploy/publish** (pushes to the live Netlify
   site) are two distinct steps — the live URL only changes on redeploy.
+- **Full E2E test passed** (fresh wizard submission `SOW-MPTCJPHC`, retail demo "Basic Needs"):
+  wizard → account → AI generation → draft→deploy handoff → Netlify live → screenshot → customer portal
+  all worked untouched. Live at `forge-sow-mptcjphc.netlify.app`; screenshot fix verified on a *new* account.
+- **Open findings from the E2E test:**
+  - **Stripe not configured** (`health.stripe = false`) → "Approve & Send Payment Link" won't work yet.
+    The only remaining gap in the full money path. _(Owner to add Stripe keys to Railway — morning of 06-01.)_
+  - **GitHub repo not created at runtime** despite valid creds (`github_token`/`github_live = true`,
+    org `arrowtrack-forge-builds`): the new submission got `repo_url: none`. The repo-create step is
+    best-effort (swallowed by `.catch` in `deployProject`), so it never blocks the deploy — but the
+    silent failure should be investigated (org perms / repo-name collision / API error).
 
 ---
 
 ## Roadmap / TODO
 
+- [ ] **Add Stripe keys to Railway** — enable "Approve & Send Payment Link" (deposit collection). _(owner, 06-01 AM)_
+- [ ] **Investigate silent GitHub repo-create failure** — valid creds but `repo_url: none` on new deploys.
 - [ ] **Agreement / SOW step** — near-term critical path after the single-call demo.
 - [ ] **Regenerate/Publish UX** — lock the button while running, show progress (indeterminate, since
       it's one call), re-enable with a result toast; make the two-stage "Regenerate (preview) → Publish
