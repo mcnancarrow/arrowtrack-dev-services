@@ -299,10 +299,13 @@ async function generateStep(stepNumber, formData, existingFiles = {}) {
   // assembles the same complete Message while keeping the larger token budget.
   const stream = client.messages.stream({
     model: 'claude-sonnet-4-5',
-    // 16k is the proven ceiling that completes within Railway's gateway timeout
-    // on the synchronous per-step endpoint. Higher (24k) made a single step run
-    // ~4 min and 502. The design quality comes from the prompt, not raw token room.
-    max_tokens: 16000,
+    // The rich "wow" prompt produces a large index.html + styles.css + app.js.
+    // 16k truncated the deliver_files tool-call mid-JSON → "no files". Sonnet 4.5
+    // supports up to 64k output; 32k gives ample headroom without truncation.
+    // The long per-step runtime is safe because generation is driven through the
+    // FIRE-AND-FORGET regenerate-all/regenerate endpoints (which return immediately
+    // and run server-side), so Railway's HTTP gateway timeout never applies.
+    max_tokens: 32000,
     system: systemPrompt(),
     tools: [{
       name: 'deliver_files',
