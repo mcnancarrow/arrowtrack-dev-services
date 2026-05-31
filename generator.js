@@ -299,7 +299,10 @@ async function generateStep(stepNumber, formData, existingFiles = {}) {
   // assembles the same complete Message while keeping the larger token budget.
   const stream = client.messages.stream({
     model: 'claude-sonnet-4-5',
-    max_tokens: 24000,
+    // 16k is the proven ceiling that completes within Railway's gateway timeout
+    // on the synchronous per-step endpoint. Higher (24k) made a single step run
+    // ~4 min and 502. The design quality comes from the prompt, not raw token room.
+    max_tokens: 16000,
     system: systemPrompt(),
     tools: [{
       name: 'deliver_files',
