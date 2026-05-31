@@ -1439,7 +1439,8 @@
   // ─── Single-call example generation ───────────────────────────────────────
   let generatedFiles = {};  // the generated example (persisted in localStorage)
   let isGenerating = false;
-  let exampleReady = false; // true once a successful example exists this session
+  let exampleReady = false;   // true once a successful example exists this session
+  let exampleAttempted = false; // true after the one automatic stage-7 fire (success OR fail)
 
   // Restore any previously generated files from localStorage
   try {
@@ -1483,9 +1484,12 @@
   // the one-shot guard so the customer can rebuild after editing their answers.
   async function generateExampleOnce(force) {
     if (isGenerating) return;
-    if (exampleReady && !force) return;
+    // Auto-fire only once at stage 7: bail if already ready (cached/returning) or
+    // already attempted this session. A forced call (tap-to-retry) bypasses this.
+    if ((exampleReady || exampleAttempted) && !force) return;
     collectFields();
     isGenerating = true;
+    exampleAttempted = true;
 
     setPreviewStatus('Generating your example…', 'generating');
     setPreviewProgress(15);
