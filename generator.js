@@ -398,6 +398,14 @@ CRITICAL OUTPUT FORMAT:
 - It must be fully self-contained: ALL CSS inside a single <style> tag in <head>, ALL JavaScript inside a single <script> tag before </body>. No styles.css, no app.js, no external files, no CDNs except Google Fonts.
 - Navigation is in-page anchors (e.g. #menu, #order, #contact) with smooth scroll — there are NO other pages.
 
+OUTPUT BUDGET — STAY COMPACT (the whole file MUST finish within a 32k-token limit; a truncated file is a failure):
+- Keep the complete file under ~48,000 characters. Aim for polished and tight, not exhaustive.
+- NO comments anywhere in the <style> or <script>. No blank-line padding.
+- Write efficient, DRY CSS: shared utility classes, group related selectors, no duplicated rules. Use CSS variables for the palette.
+- Icons: use emoji or simple CSS shapes — do NOT paste long inline <svg> path data (it burns the budget).
+- Keep every copy block to 1–2 sentences. Exactly 2 testimonials. 3–4 cards per grid, no more.
+- Prefer concise class names and minimal wrapper nesting. Quality over quantity — finish the file.
+
 BUSINESS:
 - Company: ${d.company_name || 'Company'}
 - Project: ${d.project_name || 'App'}
@@ -420,9 +428,9 @@ SINGLE-PAGE SECTIONS, IN ORDER:
 2. Hero: gradient-mesh background, an eyebrow label, an OVERSIZED headline with ONE gradient-filled keyword, a punchy sub-headline, two CTAs, and a trust line of 3 quick stats/badges.
 3. Stats band: 3–4 big numbers with labels.
 ${isRestaurant ? `4. MENU section (id="menu"): the real items as cards in a responsive grid — number badge, name, description, price; badges for vegan/new where relevant; add-ons listed.
-5. ORDER section (id="order"): an interactive order form — one row per item with a number-input quantity, a live-updating order summary + running total computed in JS, a table/seat or name field, and a "Place Order" button that shows a confirmation summary. Subtext: "Or text your order to ${bizPhone || '[phone]'}".` : `4. Features grid (id="features"): 3–4 cards, each with an inline-SVG/emoji icon, title and specific benefit copy, hover lift.
+5. ORDER section (id="order"): an interactive order form — one row per item with a number-input quantity, a live-updating order summary + running total computed in JS, a table/seat or name field, and a "Place Order" button that shows a confirmation summary. Subtext: "Or text your order to ${bizPhone || '[phone]'}".` : `4. Features grid (id="features"): 3–4 cards, each with an emoji or CSS-shape icon, title and specific benefit copy, hover lift.
 5. How it works: 3 numbered steps with a connecting line.`}
-6. Testimonials: 2–3 believable quote cards with names/roles for this business.
+6. Testimonials: exactly 2 believable quote cards with names/roles for this business.
 7. Final CTA band: bold gradient panel with headline + button.
 8. Footer (id="contact"): brand blurb, real contact line — phone ${bizPhone || '(add phone)'}, email ${d.client_email || '(add email)'}${d.company_url ? `, ${d.company_url}` : ''}, and hours if relevant.
 
@@ -468,9 +476,14 @@ async function generateExample(formData) {
   });
 
   const response = await stream.finalMessage();
+  const u = response.usage || {};
+  console.log(`[generateExample] stop_reason=${response.stop_reason} in=${u.input_tokens} out=${u.output_tokens}`);
   const toolUse = response.content.find(b => b.type === 'tool_use' && b.name === 'deliver_files');
   const html = toolUse && toolUse.input && toolUse.input.files && toolUse.input.files['index.html'];
   if (!html) {
+    if (response.stop_reason === 'max_tokens') {
+      throw new Error('Build hit the 32k token cap before finishing — the page was too large. Try again (the prompt now asks for a more compact page).');
+    }
     throw new Error('Generator returned no files. Try again.');
   }
   return {
