@@ -869,6 +869,7 @@ app.post('/admin/api/submissions/:id/redeploy', requireAdminAuth, async (req, re
         deploy_status:  'ready',
         deploy_url:     deployUrl,
         screenshot_url: screenshotUrl,
+        deploy_error:   null,   // clear any stale failure from a prior attempt
       });
       console.log(`[Redeploy ${row.ref_code}] Done: ${deployUrl}`);
     } catch (err) {

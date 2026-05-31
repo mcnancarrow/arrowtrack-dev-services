@@ -147,7 +147,9 @@ async function pollDeploy(deployId, maxAttempts = 24, intervalMs = 5000) {
 // ─── Screenshot via Microlink (free, no API key, ~1-3s) ──────────────────────
 async function takeScreenshot(url) {
   try {
-    const api = `https://api.microlink.io?url=${encodeURIComponent(url)}&screenshot=true&meta=false&embed=screenshot.url`;
+    // NOTE: no `embed=` param — that makes Microlink stream raw PNG bytes, which
+    // breaks res.json() below. Plain JSON gives us data.screenshot.url (a hosted PNG).
+    const api = `https://api.microlink.io?url=${encodeURIComponent(url)}&screenshot=true&meta=false`;
     const res = await fetch(api);
     if (!res.ok) return null;
     const data = await res.json();
