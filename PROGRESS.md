@@ -3,7 +3,7 @@
 > **Forge** — AI app-builder / quote / deploy tool. _"Dream It. Describe It. Build It."_
 > Express.js single-file server deployed on Railway (auto-deploys on push to `main`).
 
-_Last updated: 2026-05-30_
+_Last updated: 2026-05-31_
 
 ---
 
@@ -103,11 +103,31 @@ distinct while on-brand. Fonts: **Saira Condensed** (wordmark/headings) + **Inte
 - Premium "wow" generation tier; streaming API; **collapsed 6-step pipeline → single call**.
 - **Metal forge rebrand** (anvil+hammer logo, forge-blue/gunmetal) across all six pages.
 
+### 2026-05-31 — Pipeline validation, deploys live, deploy-pipeline bug fixes
+- Validated the single-call generator on both pending accounts (no truncation):
+  - **Ché Empanadas** (`SOW-MPSS926W`) — regenerated, reviewed, **first-time deploy → live** at
+    `forge-sow-mpss926w.netlify.app`.
+  - **Me\*Yioung** (`SOW-MPSUNO2J`) — regenerated from old 2-file format to single self-contained
+    `index.html`, reviewed, **redeployed → live** at `forge-sow-mpsuno2j.netlify.app`.
+- **Bug fix — deploy screenshots never captured** (`deployer.js` `takeScreenshot`): the Microlink URL
+  used `&embed=screenshot.url`, which returns raw PNG bytes and broke `res.json()`, so the call always
+  returned `null`. Dropped the `embed` param → plain JSON now yields `data.screenshot.url`. Affected
+  **all** sites (shared by `deployProject` + admin redeploy). Verified live: both sites now show thumbnails.
+- **Bug fix — stale deploy errors** (`server.js` redeploy success path): now sets `deploy_error: null`
+  on a successful redeploy, so a healthy site no longer shows a leftover failure message.
+- Confirmed both fixes cover the **new-account signup flow** (`deployProject` calls the same
+  `takeScreenshot`) — future wizard submissions get working screenshots automatically.
+- Noted: **regenerate** (updates stored preview) and **redeploy/publish** (pushes to the live Netlify
+  site) are two distinct steps — the live URL only changes on redeploy.
+
 ---
 
 ## Roadmap / TODO
 
 - [ ] **Agreement / SOW step** — near-term critical path after the single-call demo.
+- [ ] **Regenerate/Publish UX** — lock the button while running, show progress (indeterminate, since
+      it's one call), re-enable with a result toast; make the two-stage "Regenerate (preview) → Publish
+      (redeploy)" distinction explicit in admin so it's always clear if the live URL is current.
 - [ ] Make Postgres the primary store (reduce reliance on JSON fallback).
 - [ ] Add/verify Railway env vars are complete.
 - [ ] Delete the old `sow-builder` repo (superseded by Forge).
