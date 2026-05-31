@@ -6,32 +6,42 @@
   <title>Arrowtrack Forge — Build Your App</title>
   <meta name="description" content="Arrowtrack Forge — dream it, describe it, build it. Watch your quote build in real time and launch your app in 30 days."/>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 100'%3E%3Cpath fill='%235A6573' stroke='%230E1116' stroke-width='2' stroke-linejoin='round' d='M10 50 L37 42 L105 42 L105 55 L88 55 C84 62 79 65 74 69 L74 75 L97 75 L97 88 L25 88 L25 75 L50 75 L50 69 C45 65 40 62 35 55 Z'/%3E%3C/svg%3E">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --brand: #7C3AED; --brand-dark: #6D28D9;
-      --accent: #22C55E; --dark: #0D0D0D;
-      --dark2: #1A1A1A; --dark3: #252525;
-      --gray: #888; --white: #FFFFFF;
+      --brand: #3B82F6; --brand-dark: #2563EB;
+      --accent: #60A5FA; --dark: #16191F;
+      --dark2: #22272E; --dark3: #2A3038;
+      --gray: #9AA3AF; --white: #E6E9ED;
     }
     html { scroll-behavior: smooth; }
-    body { font-family: 'Inter', sans-serif; background: var(--dark); color: var(--white); min-height: 100vh; }
+    body { font-family: 'Inter', sans-serif; color: var(--white); min-height: 100vh;
+      background:
+        radial-gradient(900px 500px at 80% -10%, rgba(59,130,246,.10), transparent 60%),
+        linear-gradient(180deg,#1B1F26 0%,var(--dark) 45%,#0F1217 100%);
+      background-attachment: fixed; }
 
     /* HEADER */
     header {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 20px 40px;
-      background: #0D0D0D;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
+      padding: 16px 40px;
+      background: rgba(22,25,31,.72); backdrop-filter: blur(8px);
+      border-bottom: 1px solid rgba(255,255,255,0.07);
       position: sticky; top: 0; z-index: 100;
     }
-    .logo { font-size: 18px; font-weight: 800; text-decoration: none; }
-    .logo span:first-child { color: var(--brand); }
-    .logo span:last-child { color: var(--white); }
+    .logo { display: flex; align-items: center; gap: 11px; text-decoration: none; }
+    .logo svg { display: block; }
+    .logo .logo-text { display: flex; flex-direction: column; line-height: 1; }
+    .logo .logo-eyebrow { font: 600 9px/1 'Inter', sans-serif; letter-spacing: .28em;
+      color: var(--gray); text-transform: uppercase; margin-bottom: 4px; }
+    .logo .logo-word { font: 800 22px/1 'Saira Condensed', 'Inter', sans-serif;
+      letter-spacing: .04em; color: var(--brand); text-transform: uppercase; }
     .header-tag {
       font-size: 12px; font-weight: 600; color: var(--accent);
-      background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.25);
+      background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.25);
       padding: 5px 12px; border-radius: 100px; letter-spacing: 0.05em; text-transform: uppercase;
     }
 
@@ -64,20 +74,20 @@
     .preset-cards { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
     .preset-card { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09); border-radius: 10px; padding: 9px 14px; cursor: pointer; font-size: 13px; font-weight: 600; color: #aaa; font-family: inherit; transition: all 0.18s; white-space: nowrap; }
     .preset-card:hover { background: rgba(255,255,255,0.08); color: #fff; border-color: rgba(255,255,255,0.2); }
-    .preset-card.selected { background: rgba(124,58,237,0.15); border-color: rgba(124,58,237,0.5); color: #c4b5fd; }
+    .preset-card.selected { background: rgba(59,130,246,0.15); border-color: rgba(59,130,246,0.5); color: #c4b5fd; }
     .preset-card .pc-icon { font-size: 18px; line-height: 1; }
     .preset-skip { font-size: 12px; color: #444; background: none; border: none; cursor: pointer; font-family: inherit; margin-left: auto; text-decoration: underline; text-underline-offset: 3px; }
     .preset-skip:hover { color: #888; }
     @media (max-width: 768px) { .preset-bar { padding: 12px 16px; } .preset-bar.collapsed { padding: 0 16px; } }
 
     /* MENU CONTENT FIELD */
-    .menu-upload-group { background: rgba(34,197,94,0.04); border: 1px solid rgba(34,197,94,0.15); border-radius: 12px; padding: 20px; margin-top: 8px; }
+    .menu-upload-group { background: rgba(59,130,246,0.04); border: 1px solid rgba(59,130,246,0.15); border-radius: 12px; padding: 20px; margin-top: 8px; }
     .menu-upload-group label { color: var(--accent) !important; }
     .menu-upload-group textarea { min-height: 160px; font-family: monospace; font-size: 13px; }
     .content-hint { font-size: 12px; color: #8aa; line-height: 1.5; margin: 2px 0 12px; }
     .content-upload { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
-    .content-upload-btn { background: rgba(34,197,94,0.12); color: var(--accent); border: 1px solid rgba(34,197,94,0.35); border-radius: 10px; padding: 10px 18px; font-size: 13px; font-weight: 700; cursor: pointer; transition: background 0.2s; }
-    .content-upload-btn:hover { background: rgba(34,197,94,0.2); }
+    .content-upload-btn { background: rgba(59,130,246,0.12); color: var(--accent); border: 1px solid rgba(59,130,246,0.35); border-radius: 10px; padding: 10px 18px; font-size: 13px; font-weight: 700; cursor: pointer; transition: background 0.2s; }
+    .content-upload-btn:hover { background: rgba(59,130,246,0.2); }
     .content-upload-status { font-size: 12px; color: #8aa; line-height: 1.4; flex: 1 1 180px; }
 
     /* PROGRESS */
@@ -94,8 +104,8 @@
       transition: color 0.2s, border-color 0.2s, background 0.2s;
     }
     .progress-label:hover { color: #aaa; border-color: rgba(255,255,255,0.18); }
-    .progress-label.active { color: var(--accent); border-color: rgba(34,197,94,0.4); background: rgba(34,197,94,0.06); }
-    .progress-label.done   { color: var(--brand);  border-color: rgba(124,58,237,0.35); background: rgba(124,58,237,0.06); }
+    .progress-label.active { color: var(--accent); border-color: rgba(59,130,246,0.4); background: rgba(59,130,246,0.06); }
+    .progress-label.done   { color: var(--brand);  border-color: rgba(59,130,246,0.35); background: rgba(59,130,246,0.06); }
     @media (max-width: 768px) { .progress-wrap { padding: 12px 16px; } }
     .progress-bar-track { height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
     .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--brand), var(--accent)); border-radius: 2px; transition: width 0.4s ease; }
@@ -137,14 +147,14 @@
       background: var(--dark2); border: 1px solid rgba(255,255,255,0.07);
       border-radius: 10px; padding: 16px; cursor: pointer; transition: border-color 0.2s;
     }
-    .check-item:hover { border-color: rgba(124,58,237,0.4); }
+    .check-item:hover { border-color: rgba(59,130,246,0.4); }
     .check-item input[type="checkbox"], .check-item input[type="radio"] { display: none; }
     .check-box {
       width: 20px; height: 20px; min-width: 20px; border-radius: 5px;
       border: 2px solid rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center;
       transition: all 0.15s;
     }
-    .check-item.checked { border-color: var(--brand); background: rgba(124,58,237,0.08); }
+    .check-item.checked { border-color: var(--brand); background: rgba(59,130,246,0.08); }
     .check-item.checked .check-box { background: var(--brand); border-color: var(--brand); }
     .check-item.checked .check-box::after { content: "✓"; color: #fff; font-size: 12px; font-weight: 700; }
     .check-label { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
@@ -158,13 +168,13 @@
       background: var(--dark2); border: 1px solid rgba(255,255,255,0.07);
       border-radius: 10px; padding: 20px; cursor: pointer; transition: border-color 0.2s;
     }
-    .radio-card:hover { border-color: rgba(124,58,237,0.4); }
-    .radio-card.selected { border-color: var(--brand); background: rgba(124,58,237,0.08); }
+    .radio-card:hover { border-color: rgba(59,130,246,0.4); }
+    .radio-card.selected { border-color: var(--brand); background: rgba(59,130,246,0.08); }
     .radio-dot {
       width: 20px; height: 20px; min-width: 20px; border-radius: 50%;
       border: 2px solid rgba(255,255,255,0.2); transition: all 0.15s;
     }
-    .radio-card.selected .radio-dot { border-color: var(--brand); background: var(--brand); box-shadow: 0 0 0 3px rgba(124,58,237,0.2); }
+    .radio-card.selected .radio-dot { border-color: var(--brand); background: var(--brand); box-shadow: 0 0 0 3px rgba(59,130,246,0.2); }
     .radio-card-content { flex: 1; }
     .radio-card-title { font-size: 15px; font-weight: 700; margin-bottom: 2px; }
     .radio-card-desc { font-size: 13px; color: var(--gray); }
@@ -191,12 +201,12 @@
     .screen-remove:hover { color: #ef4444; }
     .add-screen-btn {
       display: flex; align-items: center; gap: 8px;
-      background: rgba(124,58,237,0.1); border: 1px dashed rgba(124,58,237,0.3);
+      background: rgba(59,130,246,0.1); border: 1px dashed rgba(59,130,246,0.3);
       border-radius: 10px; padding: 12px 16px; cursor: pointer;
       color: var(--brand); font-size: 14px; font-weight: 600;
       width: 100%; transition: background 0.2s;
     }
-    .add-screen-btn:hover { background: rgba(124,58,237,0.18); }
+    .add-screen-btn:hover { background: rgba(59,130,246,0.18); }
 
     /* REVIEW */
     .review-section { margin-bottom: 24px; }
@@ -207,8 +217,8 @@
 
     /* QUOTE CARD (review) */
     .quote-card {
-      background: linear-gradient(160deg, rgba(124,58,237,0.12), rgba(34,197,94,0.06));
-      border: 1px solid rgba(124,58,237,0.35); border-radius: 16px; padding: 28px; margin-bottom: 28px;
+      background: linear-gradient(160deg, rgba(59,130,246,0.12), rgba(59,130,246,0.06));
+      border: 1px solid rgba(59,130,246,0.35); border-radius: 16px; padding: 28px; margin-bottom: 28px;
     }
     .quote-card-title { font-size: 12px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 18px; }
     .quote-line { display: flex; justify-content: space-between; padding: 9px 0; font-size: 14px; border-bottom: 1px solid rgba(255,255,255,0.06); }
@@ -216,10 +226,10 @@
     .quote-line .ql-price { color: #fff; font-weight: 600; }
     .quote-total { display: flex; justify-content: space-between; padding: 16px 0 6px; font-size: 20px; font-weight: 800; }
     .quote-total .qt-price { color: var(--accent); }
-    .quote-deposit { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding: 14px 18px; background: rgba(124,58,237,0.15); border-radius: 10px; }
+    .quote-deposit { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding: 14px 18px; background: rgba(59,130,246,0.15); border-radius: 10px; }
     .quote-deposit .qd-label { font-size: 14px; font-weight: 600; color: #ddd; }
     .quote-deposit .qd-price { font-size: 18px; font-weight: 800; color: var(--brand); }
-    .quote-recurring { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding: 12px 18px; background: rgba(34,197,94,0.12); border: 1px solid rgba(34,197,94,0.25); border-radius: 10px; }
+    .quote-recurring { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding: 12px 18px; background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.25); border-radius: 10px; }
     .quote-recurring .qr-label { font-size: 13px; font-weight: 600; color: #cbd5c0; }
     .quote-recurring .qr-price { font-size: 16px; font-weight: 800; color: var(--accent); white-space: nowrap; }
     .quote-custom { text-align: center; padding: 8px 0; color: #ccc; font-size: 15px; line-height: 1.6; }
@@ -227,7 +237,7 @@
 
     /* PAYMENT CHOICE */
     .pay-options { display: grid; gap: 12px; margin-top: 8px; }
-    .demo-msg { background: var(--dark2); border: 1px solid rgba(34,197,94,0.3); border-radius: 10px; padding: 16px; color: var(--accent); font-size: 14px; margin-top: 12px; line-height: 1.6; }
+    .demo-msg { background: var(--dark2); border: 1px solid rgba(59,130,246,0.3); border-radius: 10px; padding: 16px; color: var(--accent); font-size: 14px; margin-top: 12px; line-height: 1.6; }
 
     /* LIVE QUOTE BAR */
     .quote-bar {
@@ -237,7 +247,7 @@
     .quote-pill {
       pointer-events: auto;
       display: inline-flex; align-items: center; gap: 14px;
-      background: rgba(26,26,26,0.97); border: 1px solid rgba(124,58,237,0.4);
+      background: rgba(26,26,26,0.97); border: 1px solid rgba(59,130,246,0.4);
       border-radius: 100px; padding: 10px 22px; backdrop-filter: blur(12px);
       box-shadow: 0 8px 32px rgba(0,0,0,0.4); font-size: 14px;
       transition: transform 0.25s ease, opacity 0.25s ease;
@@ -328,7 +338,7 @@
     .gate-error.show { display: block; }
 
     /* RETURNING CUSTOMER BANNER */
-    .returning-banner { background: linear-gradient(135deg, rgba(124,58,237,0.1), rgba(34,197,94,0.05)); border-bottom: 1px solid rgba(124,58,237,0.2); padding: 14px 40px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    .returning-banner { background: linear-gradient(135deg, rgba(59,130,246,0.1), rgba(59,130,246,0.05)); border-bottom: 1px solid rgba(59,130,246,0.2); padding: 14px 40px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
     .returning-info strong { color: var(--accent); font-size: 14px; }
     .returning-info span { color: var(--gray); font-size: 13px; margin-left: 8px; }
     .returning-actions { display: flex; gap: 10px; flex-shrink: 0; }
@@ -381,7 +391,28 @@
 </div>
 
 <header>
-  <a class="logo" href="/"><span>Arrowtrack</span><span> Forge</span></a>
+  <a class="logo" href="/" aria-label="Arrowtrack Forge">
+    <svg width="42" height="35" viewBox="0 0 120 100" aria-hidden="true">
+      <defs>
+        <linearGradient id="lgSteel" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#CBD2DB"/><stop offset="0.2" stop-color="#9AA3AF"/>
+          <stop offset="0.55" stop-color="#5A6573"/><stop offset="1" stop-color="#333942"/>
+        </linearGradient>
+        <linearGradient id="lgHammer" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#93B8FF"/><stop offset="1" stop-color="#2D6BE0"/>
+        </linearGradient>
+      </defs>
+      <g transform="rotate(34 60 52)">
+        <rect x="56.5" y="14" width="7" height="64" rx="3.5" fill="#54627a" stroke="#0E1116" stroke-width="1.5"/>
+        <rect x="44" y="6" width="32" height="18" rx="5" fill="url(#lgHammer)" stroke="#0E1116" stroke-width="1.6"/>
+        <rect x="46" y="8.5" width="28" height="4" rx="2" fill="#ffffff" opacity="0.4"/>
+      </g>
+      <path fill="url(#lgSteel)" stroke="#0E1116" stroke-width="2" stroke-linejoin="round"
+        d="M10 50 L37 42 L105 42 L105 55 L88 55 C84 62 79 65 74 69 L74 75 L97 75 L97 88 L25 88 L25 75 L50 75 L50 69 C45 65 40 62 35 55 Z"/>
+      <path fill="#ffffff" opacity="0.35" d="M37 42 L105 42 L105 45 L37 45 Z"/>
+    </svg>
+    <span class="logo-text"><span class="logo-eyebrow">Arrowtrack</span><span class="logo-word">Forge</span></span>
+  </a>
   <div class="header-tag">Build Your App</div>
 </header>
 
@@ -701,15 +732,15 @@
       <div class="field-group">
         <label>Primary Brand Color</label>
         <div class="color-row">
-          <input type="color" id="color_primary_picker" value="#7C3AED" oninput="document.getElementById('color_primary').value=this.value;autoSave()"/>
-          <input type="text" id="color_primary" value="#7C3AED" placeholder="#7C3AED" oninput="document.getElementById('color_primary_picker').value=this.value"/>
+          <input type="color" id="color_primary_picker" value="#3B82F6" oninput="document.getElementById('color_primary').value=this.value;autoSave()"/>
+          <input type="text" id="color_primary" value="#3B82F6" placeholder="#3B82F6" oninput="document.getElementById('color_primary_picker').value=this.value"/>
         </div>
       </div>
       <div class="field-group">
         <label>Accent / Secondary Color</label>
         <div class="color-row">
-          <input type="color" id="color_secondary_picker" value="#22C55E" oninput="document.getElementById('color_secondary').value=this.value;autoSave()"/>
-          <input type="text" id="color_secondary" value="#22C55E" placeholder="#22C55E" oninput="document.getElementById('color_secondary_picker').value=this.value"/>
+          <input type="color" id="color_secondary_picker" value="#60A5FA" oninput="document.getElementById('color_secondary').value=this.value;autoSave()"/>
+          <input type="text" id="color_secondary" value="#60A5FA" placeholder="#60A5FA" oninput="document.getElementById('color_secondary_picker').value=this.value"/>
         </div>
       </div>
     </div>
