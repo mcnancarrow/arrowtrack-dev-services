@@ -74,7 +74,7 @@
     .preset-cards { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
     .preset-card { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09); border-radius: 10px; padding: 9px 14px; cursor: pointer; font-size: 13px; font-weight: 600; color: #aaa; font-family: inherit; transition: all 0.18s; white-space: nowrap; }
     .preset-card:hover { background: rgba(255,255,255,0.08); color: #fff; border-color: rgba(255,255,255,0.2); }
-    .preset-card.selected { background: rgba(59,130,246,0.15); border-color: rgba(59,130,246,0.5); color: #c4b5fd; }
+    .preset-card.selected { background: rgba(59,130,246,0.15); border-color: rgba(59,130,246,0.5); color: #BFD4FF; }
     .preset-card .pc-icon { font-size: 18px; line-height: 1; }
     .preset-skip { font-size: 12px; color: #444; background: none; border: none; cursor: pointer; font-family: inherit; margin-left: auto; text-decoration: underline; text-underline-offset: 3px; }
     .preset-skip:hover { color: #888; }
@@ -1650,7 +1650,7 @@
         if (res.status === 409) {
           showStep7Error(
             'That email already has an account. Check your password, or ' +
-            '<a href="#" style="color:#a78bfa;text-decoration:underline;" ' +
+            '<a href="#" style="color:#93B8FF;text-decoration:underline;" ' +
             'onclick="event.preventDefault();gateTab(\'login\');showGateModal();">log in instead →</a>'
           );
         } else {
