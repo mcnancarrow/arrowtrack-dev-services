@@ -349,4 +349,134 @@ async function generateStep(stepNumber, formData, existingFiles = {}) {
   };
 }
 
-module.exports = { generateStep, GENERATION_STEPS, STEP_LABELS };
+// ─── Single-call example prompt ──────────────────────────────────────────────
+// Builds ONE prompt that captures everything the customer entered and asks for a
+// single self-contained index.html. This replaces the 6-step pipeline for the
+// sales "example" the client sees before the agreement.
+function examplePrompt(d) {
+  const platforms = [
+    d.platform_web && 'Web App',
+    d.platform_ios && 'iOS',
+    d.platform_android && 'Android',
+  ].filter(Boolean).join(', ') || 'Web';
+
+  const deliverables = [
+    d.del_admin && 'Admin Dashboard', d.del_payments && 'Payments',
+    d.del_ai && 'AI Features', d.del_push && 'Push Notifications',
+    d.del_email && 'Email Notifications', d.del_maps && 'Maps / Location',
+    d.del_analytics && 'Analytics', d.del_cms && 'CMS',
+  ].filter(Boolean).join(', ');
+
+  const features = [
+    d.feat_auth && 'Email/Password Auth', d.feat_oauth && 'Social Login',
+    d.feat_roles && 'User Roles', d.feat_magic && 'Magic Link Login',
+    d.feat_stripe && 'Stripe Payments', d.feat_subscriptions && 'Subscriptions',
+    d.feat_freemium && 'Freemium', d.feat_iap && 'In-App Purchases',
+    d.feat_ai_content && 'AI Content', d.feat_ai_chat && 'AI Chat Assistant',
+    d.feat_ai_analysis && 'AI Data Analysis', d.feat_automation && 'Workflow Automation',
+  ].filter(Boolean).join(', ');
+
+  const screensList = (Array.isArray(d.screens_list) && d.screens_list.length > 0)
+    ? d.screens_list
+    : Array.isArray(d.screens) ? d.screens.filter(Boolean)
+    : (d.screens ? [d.screens] : ['Home', 'Contact']);
+
+  const isRestaurant = !!(d.industry_preset === 'restaurant' ||
+    (d.business_type || '').toLowerCase().match(/restaurant|food service|café|cafe|empanada|pizza|sushi|diner|bistro|bar & grill|food truck/));
+  const providedContent = (d.content_material || d.menu_content || '').trim();
+  const contentCtx = providedContent
+    ? `\n\n${isRestaurant ? 'MENU / PRODUCT LIST' : 'PROVIDED CONTENT'} (use the EXACT items, descriptions, prices and copy below — never invent, change, or replace them with filler):\n${providedContent}`
+    : '';
+
+  const bizPhone = d.phone || d.business_phone || '';
+  const isLight = (d.color_mode || '').toLowerCase().includes('light');
+
+  return `Generate ONE single, self-contained index.html for this business — a premium, scroll-worthy single-page web app demo. This is the example the client judges before signing, so it must look like a top agency built it and clearly worth $3,500+.
+
+CRITICAL OUTPUT FORMAT:
+- Return EXACTLY ONE file named "index.html".
+- It must be fully self-contained: ALL CSS inside a single <style> tag in <head>, ALL JavaScript inside a single <script> tag before </body>. No styles.css, no app.js, no external files, no CDNs except Google Fonts.
+- Navigation is in-page anchors (e.g. #menu, #order, #contact) with smooth scroll — there are NO other pages.
+
+BUSINESS:
+- Company: ${d.company_name || 'Company'}
+- Project: ${d.project_name || 'App'}
+- Industry: ${d.business_type || 'Business'}
+- Goal: ${d.business_goal || 'Build a great product'}
+- Target Users: ${d.target_users || 'General users'}
+- Platforms: ${platforms}
+- Highlighted capabilities: ${[deliverables, features].filter(Boolean).join(', ') || 'Core experience'}
+
+DESIGN SYSTEM — follow EXACTLY (these override any defaults in your system instructions):
+- Color Mode: ${d.color_mode || 'Dark Mode'}
+- Primary / brand color: ${d.color_primary || '#7C3AED'}
+- Accent color: ${d.color_secondary || '#22C55E'}
+- Typography: ${d.font_style || 'Modern & Clean (Inter)'} — load the matching Google Font and use it throughout.
+- Design Notes: ${d.design_notes || 'None'}
+${isLight ? '- LIGHT THEME: warm/clean light background, dark readable text, brand color used for accents/CTAs — do NOT use the dark default.' : '- Dark, premium theme as per your design language.'}
+
+SINGLE-PAGE SECTIONS, IN ORDER:
+1. Sticky glass nav: wordmark left, in-page anchor links + a primary CTA button right, working mobile hamburger.
+2. Hero: gradient-mesh background, an eyebrow label, an OVERSIZED headline with ONE gradient-filled keyword, a punchy sub-headline, two CTAs, and a trust line of 3 quick stats/badges.
+3. Stats band: 3–4 big numbers with labels.
+${isRestaurant ? `4. MENU section (id="menu"): the real items as cards in a responsive grid — number badge, name, description, price; badges for vegan/new where relevant; add-ons listed.
+5. ORDER section (id="order"): an interactive order form — one row per item with a number-input quantity, a live-updating order summary + running total computed in JS, a table/seat or name field, and a "Place Order" button that shows a confirmation summary. Subtext: "Or text your order to ${bizPhone || '[phone]'}".` : `4. Features grid (id="features"): 3–4 cards, each with an inline-SVG/emoji icon, title and specific benefit copy, hover lift.
+5. How it works: 3 numbered steps with a connecting line.`}
+6. Testimonials: 2–3 believable quote cards with names/roles for this business.
+7. Final CTA band: bold gradient panel with headline + button.
+8. Footer (id="contact"): brand blurb, real contact line — phone ${bizPhone || '(add phone)'}, email ${d.client_email || '(add email)'}${d.company_url ? `, ${d.company_url}` : ''}, and hours if relevant.
+
+INTERACTIVITY (vanilla JS in the single <script>): mobile nav toggle, smooth-scroll for anchor links, scroll-reveal entrance animations via IntersectionObserver (elements fade + slide in), and${isRestaurant ? ' the live order-total calculator described above.' : ' contact-form validation with a fake success state.'}
+
+Write REAL, specific, on-brand copy for THIS business everywhere — no [PLACEHOLDER], no TODO, no Lorem ipsum.${contentCtx}`;
+}
+
+// ─── Single-call example generator ───────────────────────────────────────────
+// ONE Claude call → ONE self-contained index.html. Used for the sales example
+// shown before the agreement. ~1/6th the cost and latency of the step pipeline,
+// a single file that's trivial to preview, and far fewer failure points.
+// Always invoked from fire-and-forget endpoints, so the long runtime never hits
+// Railway's HTTP gateway timeout.
+async function generateExample(formData) {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    throw new Error('ANTHROPIC_API_KEY is not set.');
+  }
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+  const stream = client.messages.stream({
+    model: 'claude-sonnet-4-5',
+    max_tokens: 32000,
+    system: systemPrompt(),
+    tools: [{
+      name: 'deliver_files',
+      description: 'Deliver the generated example file.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          files: {
+            type: 'object',
+            description: 'Object with a single key "index.html" whose value is the complete, self-contained HTML document (all CSS in a <style> tag, all JS in a <script> tag).',
+            additionalProperties: { type: 'string' }
+          },
+          summary: { type: 'string', description: 'One sentence describing the example.' }
+        },
+        required: ['files', 'summary']
+      }
+    }],
+    tool_choice: { type: 'any' },
+    messages: [{ role: 'user', content: examplePrompt(formData) }]
+  });
+
+  const response = await stream.finalMessage();
+  const toolUse = response.content.find(b => b.type === 'tool_use' && b.name === 'deliver_files');
+  const html = toolUse && toolUse.input && toolUse.input.files && toolUse.input.files['index.html'];
+  if (!html) {
+    throw new Error('Generator returned no files. Try again.');
+  }
+  return {
+    files: { 'index.html': html },
+    summary: (toolUse.input && toolUse.input.summary) || 'Generated your example.'
+  };
+}
+
+module.exports = { generateStep, generateExample, GENERATION_STEPS, STEP_LABELS };

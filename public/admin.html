@@ -226,19 +226,14 @@
 
     // ── Pre-build review panel + file editor strings (must NOT go inside the
     //    template literal — file content would escape backticks / ${} sequences)
-    const stepBtns = [1,2,3,4,5,7].map(function(n) {
-      var labels = {1:'① Foundation',2:'② Platforms',3:'③ Features',4:'④ Screens',5:'⑤ Design',7:'⑦ Content'};
-      return '<button class="step-btn" onclick="regenerateStep(' + id + ',' + n + ',this)">' + labels[n] + '</button>';
-    }).join('');
+    // Per-step buttons removed: generation is now a single call, not a 6-step pipeline.
+    const stepBtns = '';
     const hasFiles = !!(s.generated_files && Object.keys(s.generated_files).length > 0);
-    // Regenerate-All button — reflects live regen_status from server
-    var regenAllLabel = '🔄 Regenerate All';
+    // Regenerate button — reflects live regen_status from server (single call now)
+    var regenAllLabel = '🔄 Regenerate Example';
     var regenAllDisabled = '';
     if (s.regen_status && s.regen_status.startsWith('running')) {
-      var _rStepNm = {1:'Foundation',2:'Platforms',3:'Features',4:'Screens',5:'Design',7:'Content'};
-      var _rStep   = Number((s.regen_status.split(':'))[1]);
-      var _rIdx    = [1,2,3,4,5,7].indexOf(_rStep);
-      regenAllLabel   = '⏳ Step ' + (_rIdx + 1) + '/6: ' + (_rStepNm[_rStep] || 'Running…');
+      regenAllLabel   = '⏳ Generating…';
       regenAllDisabled = ' disabled';
     }
     // Intentionally small + muted — this is destructive, should not be easy to hit
@@ -623,13 +618,13 @@
           if (btn) {
             btn.textContent = '✓ Done — ' + fileCount + ' file(s) ready';
             setTimeout(function() {
-              if (btn && document.contains(btn)) { btn.textContent = '🔄 Regenerate All'; btn.disabled = false; }
+              if (btn && document.contains(btn)) { btn.textContent = '🔄 Regenerate Example'; btn.disabled = false; }
             }, 4000);
           }
         } else if (st.startsWith('error:')) {
           clearInterval(interval);
           alert('Regeneration failed: ' + st.split(':').slice(1).join(':'));
-          if (btn && document.contains(btn)) { btn.textContent = '🔄 Regenerate All'; btn.disabled = false; }
+          if (btn && document.contains(btn)) { btn.textContent = '🔄 Regenerate Example'; btn.disabled = false; }
         }
       } catch { /* transient network error — keep polling */ }
     }, 3000);

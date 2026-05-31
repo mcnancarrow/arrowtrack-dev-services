@@ -1388,7 +1388,7 @@
     document.getElementById(`step-${n}`).classList.add('active');
     window.scrollTo(0, 0);
     currentStep = n;
-    if (n === TOTAL_STEPS) buildReview();
+    if (n === TOTAL_STEPS) { buildReview(); generateExampleOnce(); }
     // Show the preview panel only on Step 7 (account/review) and Step 8 (summary)
     document.getElementById('forgePreview').style.display = (n >= 7) ? 'flex' : 'none';
     updateNav();
@@ -1399,22 +1399,22 @@
     const completedStep = currentStep;
     // Gate: completing Step 7 while not signed in → create account inline, don't advance yet
     if (completedStep === 7 && !__isSignedIn) { doStep7Gate(); return; }
+    // No per-step generation: the single example is generated once when the
+    // review step (TOTAL_STEPS) opens, via showStep → generateExampleOnce().
     if (currentStep < TOTAL_STEPS) showStep(currentStep + 1);
-    triggerGeneration(completedStep);
   }
   function prevStep() { if (currentStep > 1) showStep(currentStep - 1); }
 
-  // ─── Progressive generation ───────────────────────────────────────────────
-  const GEN_STEPS = [1, 2, 3, 4, 5, 7];
-  let generatedFiles = {};  // accumulates across steps (persisted in localStorage)
+  // ─── Single-call example generation ───────────────────────────────────────
+  let generatedFiles = {};  // the generated example (persisted in localStorage)
   let isGenerating = false;
-  let genQueue = [];        // queue steps if one is already in-flight
+  let exampleReady = false; // true once a successful example exists this session
 
   // Restore any previously generated files from localStorage
   try {
     const saved = localStorage.getItem('forge_generated');
     if (saved) generatedFiles = JSON.parse(saved);
-    if (Object.keys(generatedFiles).length > 0) showPreview(generatedFiles);
+    if (generatedFiles && generatedFiles['index.html']) { exampleReady = true; showPreview(generatedFiles); }
   } catch(e) {}
 
   function setPreviewStatus(text, state) {
@@ -1447,54 +1447,53 @@
     document.getElementById('previewPlaceholder').style.display = 'none';
   }
 
-  async function triggerGeneration(step) {
-    if (!GEN_STEPS.includes(step)) return;
-    if (isGenerating) { genQueue.push(step); return; }
+  // Generate the single self-contained example exactly once per session.
+  // Fired when the review step opens. force=true (manual "Regenerate") overrides
+  // the one-shot guard so the customer can rebuild after editing their answers.
+  async function generateExampleOnce(force) {
+    if (isGenerating) return;
+    if (exampleReady && !force) return;
     collectFields();
     isGenerating = true;
 
-    const LABELS = {
-      1: 'Building your app structure…',
-      2: 'Adding platform components…',
-      3: 'Wiring up features…',
-      4: 'Laying out your screens…',
-      5: 'Applying your brand…',
-      7: 'Personalising your content…',
-    };
-    setPreviewStatus(LABELS[step] || 'Generating…', 'generating');
-    setPreviewProgress(20);
+    setPreviewStatus('Generating your example…', 'generating');
+    setPreviewProgress(15);
+    // Slow trickle so the bar feels alive during the ~1–2 min single call
+    let pct = 15;
+    const tick = setInterval(() => { pct = Math.min(pct + 4, 90); setPreviewProgress(pct); }, 2500);
 
     try {
-      setPreviewProgress(40);
       const res = await fetch('/api/draft/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({ step, formData, existingFiles: generatedFiles })
+        body: JSON.stringify({ formData })
       });
-      setPreviewProgress(80);
       const data = await res.json();
-      if (data.success && data.files) {
+      if (data.success && data.files && data.files['index.html']) {
         generatedFiles = data.files;
+        exampleReady = true;
         localStorage.setItem('forge_generated', JSON.stringify(generatedFiles));
         showPreview(generatedFiles);
-        setPreviewStatus(data.summary || 'Updated ✓', 'ready');
-      } else if (data.skipped) {
-        setPreviewStatus('Ready', 'ready');
+        setPreviewStatus(data.summary || 'Your example is ready ✓', 'ready');
       } else {
-        setPreviewStatus('Generation error — try again', 'idle');
+        setPreviewStatus('Generation error — tap to retry', 'idle');
         console.warn('Generation error:', data.error);
       }
     } catch(err) {
-      setPreviewStatus('Network error', 'idle');
+      setPreviewStatus('Network error — tap to retry', 'idle');
       console.error('Generation fetch failed:', err);
     } finally {
+      clearInterval(tick);
       setPreviewProgress(100);
       setTimeout(() => setPreviewProgress(0), 800);
       isGenerating = false;
-      if (genQueue.length > 0) triggerGeneration(genQueue.shift());
     }
   }
+  // Allow tapping the status to retry after an error.
+  document.getElementById('previewStatusText')?.addEventListener('click', () => {
+    if (!isGenerating && !exampleReady) generateExampleOnce(true);
+  });
 
   // Allow clicking progress labels to jump
   document.querySelectorAll('.progress-label').forEach(l => {
@@ -1637,8 +1636,7 @@
       formData.client_email = email;
       formData.client_name  = firstName;
       clearStep7Error();
-      showStep(8);
-      triggerGeneration(7);
+      showStep(8); // showStep(TOTAL_STEPS) fires generateExampleOnce()
     } catch (err) {
       showStep7Error('Network error. Please try again.');
       btn.disabled = false;
@@ -1689,7 +1687,6 @@
       __isSignedIn = true; __userName = fn;
       hideGateModal();
       showStep(2);
-      triggerGeneration(1);
     } catch(err) { showGateError('signup', 'Network error. Please try again.'); btn.disabled = false; btn.textContent = 'Create Account & Start Building →'; }
   }
 
@@ -1710,7 +1707,6 @@
       __isSignedIn = true; __userName = data.name || em.split('@')[0];
       hideGateModal();
       showStep(2);
-      triggerGeneration(1);
     } catch(err) { showGateError('login', 'Network error. Please try again.'); btn.disabled = false; btn.textContent = 'Log In & Continue →'; }
   }
 

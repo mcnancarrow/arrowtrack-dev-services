@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const { Octokit } = require('@octokit/rest');
-const { generateStep, GENERATION_STEPS } = require('./generator');
+const { generateStep, generateExample, GENERATION_STEPS } = require('./generator');
 const { deployProject, redeployToNetlify, pushToGitHub, pollDeploy, takeScreenshot } = require('./deployer');
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -771,23 +771,21 @@ app.post('/admin/api/submissions/:id/domain-active', requireAdminAuth, async (re
   res.json({ success: true });
 });
 
-// ─── Admin: regenerate a single generation step ─────────────────────────────
+// ─── Admin: regenerate the example (single call, synchronous) ───────────────
+// NOTE: prefer the fire-and-forget /regenerate-all for the UI button — at 32k
+// tokens a single generation can run long enough to hit the gateway timeout on
+// this synchronous endpoint. Kept for direct/manual use.
 app.post('/admin/api/submissions/:id/regenerate-step', requireAdminAuth, async (req, res) => {
-  const step = Number(req.body.step);
-  if (!GENERATION_STEPS.includes(step)) {
-    return res.status(400).json({ error: `Step ${step} is not a generation step. Valid: ${GENERATION_STEPS.join(', ')}` });
-  }
   const db = await readDB();
   const row = db.find(r => r.id == req.params.id);
   if (!row) return res.status(404).json({ error: 'Submission not found.' });
   const formData = row.data || {};
-  const existingFiles = row.generated_files || {};
   try {
-    const result = await generateStep(step, formData, existingFiles);
+    const result = await generateExample(formData);
     await updateSubmissionField(row.ref_code, { generated_files: result.files });
-    res.json({ success: true, files: result.files, summary: result.summary, step });
+    res.json({ success: true, files: result.files, summary: result.summary });
   } catch (err) {
-    console.error(`[Admin regen step ${step}]`, err.message);
+    console.error('[Admin regen]', err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -800,20 +798,15 @@ app.post('/admin/api/submissions/:id/regenerate-all', requireAdminAuth, async (r
   if (row.regen_status === 'running') return res.status(409).json({ error: 'Regeneration already in progress.' });
   await updateSubmissionField(row.ref_code, { regen_status: 'running' });
   res.json({ success: true, status: 'started' });
-  // Fire-and-forget — stays alive past any proxy timeout
+  // Fire-and-forget — stays alive past any proxy timeout. One call, one file.
   (async () => {
     const formData = row.data || {};
-    let files = {};
     try {
-      for (const step of GENERATION_STEPS) {
-        await updateSubmissionField(row.ref_code, { regen_status: `running:${step}` });
-        const result = await generateStep(step, formData, files);
-        files = Object.assign({}, files, result.files || {});
-      }
-      await updateSubmissionField(row.ref_code, { generated_files: files, regen_status: 'done' });
-      console.log(`[regen-all ${row.ref_code}] Complete — ${Object.keys(files).length} file(s)`);
+      const result = await generateExample(formData);
+      await updateSubmissionField(row.ref_code, { generated_files: result.files, regen_status: 'done' });
+      console.log(`[regen ${row.ref_code}] Complete — ${Object.keys(result.files).length} file(s)`);
     } catch (err) {
-      console.error(`[regen-all ${row.ref_code}]`, err.message);
+      console.error(`[regen ${row.ref_code}]`, err.message);
       await updateSubmissionField(row.ref_code, { regen_status: `error:${err.message}` });
     }
   })();
@@ -941,20 +934,15 @@ app.post('/api/login', async (req, res) => {
   res.json({ success: true, name: acct.name, email });
 });
 
-// ─── Progressive app generation ─────────────────────────────────────────────
-// Called after each wizard step. No session required — anonymous users get
-// files back in the response; signed-in users also get them saved to their draft.
+// ─── App example generation ─────────────────────────────────────────────────
+// Called ONCE, after the customer has entered everything, to produce a single
+// self-contained index.html example. No session required — anonymous users get
+// the file back in the response; signed-in users also get it saved to their draft.
 app.post('/api/draft/generate', async (req, res) => {
-  const step = Number(req.body.step);
   const formData = req.body.formData || {};
-  const clientFiles = req.body.existingFiles || {}; // client sends back what it has
-
-  if (!GENERATION_STEPS.includes(step)) {
-    return res.json({ skipped: true, step });
-  }
 
   try {
-    const result = await generateStep(step, formData, clientFiles);
+    const result = await generateExample(formData);
 
     // If signed in, persist generated files to the server draft too
     const email = verifySession(req.cookies.forge_session);
@@ -964,14 +952,13 @@ app.post('/api/draft/generate', async (req, res) => {
         const key = normEmail(email);
         if (!drafts[key]) drafts[key] = {};
         drafts[key].generatedFiles = result.files;
-        drafts[key].generationStep = step;
         await writeDrafts(drafts);
       } catch (e) { /* non-fatal — client already has the files */ }
     }
 
-    res.json({ success: true, files: result.files, summary: result.summary, step });
+    res.json({ success: true, files: result.files, summary: result.summary });
   } catch (err) {
-    console.error('Generation error step', step, err.message);
+    console.error('Generation error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -1201,16 +1188,13 @@ app.post('/api/my-projects/:ref/regenerate', requireCustomer, async (req, res) =
   await updateSubmissionField(row.ref_code, { regen_status: 'running' });
   res.json({ success: true, status: 'started' });
 
-  // Fire-and-forget: regenerate all steps, then redeploy live.
+  // Fire-and-forget: regenerate the example (one call), then redeploy live.
   (async () => {
     const formData = row.data || {};
     let files = {};
     try {
-      for (const step of GENERATION_STEPS) {
-        await updateSubmissionField(row.ref_code, { regen_status: `running:${step}` });
-        const result = await generateStep(step, formData, files);
-        files = Object.assign({}, files, result.files || {});
-      }
+      const result = await generateExample(formData);
+      files = result.files;
       await updateSubmissionField(row.ref_code, { generated_files: files, regen_status: 'done' });
       console.log(`[self-regen ${row.ref_code}] Generated ${Object.keys(files).length} file(s)`);
 
