@@ -294,7 +294,10 @@ async function generateStep(stepNumber, formData, existingFiles = {}) {
 
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-  const response = await client.messages.create({
+  // Use the streaming API: with a high max_tokens the SDK refuses non-streaming
+  // requests (they could exceed its 10-minute guard). stream().finalMessage()
+  // assembles the same complete Message while keeping the larger token budget.
+  const stream = client.messages.stream({
     model: 'claude-sonnet-4-5',
     max_tokens: 24000,
     system: systemPrompt(),
@@ -323,6 +326,8 @@ async function generateStep(stepNumber, formData, existingFiles = {}) {
       content: stepPrompt(stepNumber, formData, existingFiles)
     }]
   });
+
+  const response = await stream.finalMessage();
 
   const toolUse = response.content.find(b => b.type === 'tool_use' && b.name === 'deliver_files');
   if (!toolUse || !toolUse.input || !toolUse.input.files) {
