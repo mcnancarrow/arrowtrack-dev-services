@@ -5,13 +5,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Arrowtrack Forge — My Project</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 100'%3E%3Cpath fill='%235A6573' stroke='%230E1116' stroke-width='2' stroke-linejoin='round' d='M10 50 L37 42 L105 42 L105 55 L88 55 C84 62 79 65 74 69 L74 75 L97 75 L97 88 L25 88 L25 75 L50 75 L50 69 C45 65 40 62 35 55 Z'/%3E%3C/svg%3E">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    :root { --brand: #7C3AED; --brand-dark: #6D28D9; --accent: #22C55E; --dark: #0D0D0D; --dark2: #1A1A1A; --dark3: #252525; --gray: #888; --white: #fff; }
-    body { font-family: 'Inter', sans-serif; background: var(--dark); color: var(--white); min-height: 100vh; }
-    header { display: flex; align-items: center; justify-content: space-between; padding: 20px 40px; border-bottom: 1px solid rgba(255,255,255,0.06); position: sticky; top: 0; background: rgba(13,13,13,0.96); backdrop-filter: blur(12px); z-index: 50; }
-    .logo { font-size: 18px; font-weight: 800; text-decoration: none; }
+    :root { --brand: #3B82F6; --brand-dark: #2563EB; --accent: #60A5FA; --dark: #16191F; --dark2: #22272E; --dark3: #2A3038; --gray: #9AA3AF; --white: #E6E9ED; }
+    body { font-family: 'Inter', sans-serif; color: var(--white); min-height: 100vh;
+      background:
+        radial-gradient(900px 500px at 80% -10%, rgba(59,130,246,.10), transparent 60%),
+        linear-gradient(180deg,#1B1F26 0%,var(--dark) 45%,#0F1217 100%);
+      background-attachment: fixed; }
+    header { display: flex; align-items: center; justify-content: space-between; padding: 14px 40px; border-bottom: 1px solid rgba(255,255,255,0.07); position: sticky; top: 0; background: rgba(22,25,31,.72); backdrop-filter: blur(8px); z-index: 50; }
+    .logo { display: flex; align-items: center; gap: 11px; text-decoration: none; }
+    .logo svg { display: block; }
+    .logo .logo-text { display: flex; flex-direction: column; line-height: 1; }
+    .logo .logo-eyebrow { font: 600 9px/1 'Inter', sans-serif; letter-spacing: .28em; color: var(--gray); text-transform: uppercase; margin-bottom: 4px; }
+    .logo .logo-word { font: 800 21px/1 'Saira Condensed', 'Inter', sans-serif; letter-spacing: .04em; color: var(--brand); text-transform: uppercase; }
     .logo span:first-child { color: var(--brand); }
     .logo span:last-child { color: var(--white); }
     .header-right { display: flex; align-items: center; gap: 18px; }
@@ -33,18 +43,18 @@
     .project-name { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
     .project-ref { font-size: 12px; color: #666; font-family: monospace; }
     .status-badge { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; padding: 5px 12px; border-radius: 100px; white-space: nowrap; }
-    .status-new { background: rgba(34,197,94,0.15); color: var(--accent); }
-    .status-reviewing { background: rgba(124,58,237,0.15); color: #a78bfa; }
-    .status-approved { background: rgba(34,197,94,0.18); color: #4ade80; }
+    .status-new { background: rgba(59,130,246,0.15); color: var(--accent); }
+    .status-reviewing { background: rgba(59,130,246,0.15); color: #93B8FF; }
+    .status-approved { background: rgba(59,130,246,0.18); color: #7DACFF; }
     .status-active { background: rgba(59,130,246,0.15); color: #60a5fa; }
-    .status-complete { background: rgba(34,197,94,0.2); color: var(--accent); }
+    .status-complete { background: rgba(59,130,246,0.2); color: var(--accent); }
 
     /* TIMELINE */
     .timeline { display: flex; margin: 8px 0 28px; }
     .tl-step { flex: 1; text-align: center; position: relative; }
     .tl-dot { width: 26px; height: 26px; border-radius: 50%; background: var(--dark3); border: 2px solid rgba(255,255,255,0.15); margin: 0 auto 8px; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #666; position: relative; z-index: 2; }
     .tl-step.done .tl-dot { background: var(--brand); border-color: var(--brand); color: #fff; }
-    .tl-step.current .tl-dot { background: var(--accent); border-color: var(--accent); color: #000; box-shadow: 0 0 0 4px rgba(34,197,94,0.2); }
+    .tl-step.current .tl-dot { background: var(--accent); border-color: var(--accent); color: #000; box-shadow: 0 0 0 4px rgba(59,130,246,0.2); }
     .tl-line { position: absolute; top: 13px; left: -50%; width: 100%; height: 2px; background: rgba(255,255,255,0.12); z-index: 1; }
     .tl-step.done .tl-line, .tl-step.current .tl-line { background: var(--brand); }
     .tl-step:first-child .tl-line { display: none; }
@@ -60,24 +70,24 @@
     .qrow .v { color: #fff; font-weight: 600; min-width: 0; text-align: right; overflow-wrap: anywhere; }
     .qrow.total { font-size: 16px; font-weight: 800; padding-top: 12px; }
     .qrow.total .v { color: var(--accent); }
-    .paid-pill { font-size: 11px; font-weight: 700; color: var(--accent); background: rgba(34,197,94,0.12); padding: 2px 8px; border-radius: 100px; }
+    .paid-pill { font-size: 11px; font-weight: 700; color: var(--accent); background: rgba(59,130,246,0.12); padding: 2px 8px; border-radius: 100px; }
     .due-pill { font-size: 11px; font-weight: 700; color: #fbbf24; background: rgba(251,191,36,0.12); padding: 2px 8px; border-radius: 100px; }
     .tag-list { display: flex; flex-wrap: wrap; gap: 6px; }
-    .tag { font-size: 12px; font-weight: 600; background: rgba(124,58,237,0.12); color: #a78bfa; border: 1px solid rgba(124,58,237,0.2); padding: 3px 10px; border-radius: 100px; }
-    .tag-green { background: rgba(34,197,94,0.1); color: var(--accent); border-color: rgba(34,197,94,0.2); }
+    .tag { font-size: 12px; font-weight: 600; background: rgba(59,130,246,0.12); color: #93B8FF; border: 1px solid rgba(59,130,246,0.2); padding: 3px 10px; border-radius: 100px; }
+    .tag-green { background: rgba(59,130,246,0.1); color: var(--accent); border-color: rgba(59,130,246,0.2); }
 
-    .balance-bar { margin-top: 20px; padding: 18px 20px; background: rgba(124,58,237,0.1); border: 1px solid rgba(124,58,237,0.3); border-radius: 12px; display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .balance-bar { margin-top: 20px; padding: 18px 20px; background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 12px; display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
     .balance-info .bl { font-size: 12px; color: var(--gray); margin-bottom: 2px; }
     .balance-info .bv { font-size: 20px; font-weight: 800; color: #fff; }
     .btn-pay { background: var(--accent); color: #000; border: none; border-radius: 10px; padding: 12px 24px; font-size: 14px; font-weight: 800; cursor: pointer; transition: opacity 0.2s; }
     .btn-pay:hover { opacity: 0.9; }
     .btn-pay:disabled { opacity: 0.5; cursor: not-allowed; }
     .pay-note { font-size: 13px; color: var(--accent); margin-top: 12px; line-height: 1.5; }
-    .banner { background: rgba(34,197,94,0.12); border: 1px solid rgba(34,197,94,0.3); color: var(--accent); border-radius: 12px; padding: 16px 20px; margin-bottom: 28px; font-size: 14px; font-weight: 600; }
+    .banner { background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.3); color: var(--accent); border-radius: 12px; padding: 16px 20px; margin-bottom: 28px; font-size: 14px; font-weight: 600; }
 
     /* PREVIEW PANEL (3 states: ready / building / pending) */
     .preview-panel { border-radius: 14px; padding: 22px 24px; margin-bottom: 16px; overflow: hidden; }
-    .preview-panel.ready { background: linear-gradient(135deg, rgba(124,58,237,0.1), rgba(34,197,94,0.06)); border: 1px solid rgba(124,58,237,0.3); }
+    .preview-panel.ready { background: linear-gradient(135deg, rgba(59,130,246,0.1), rgba(59,130,246,0.06)); border: 1px solid rgba(59,130,246,0.3); }
     .preview-panel.building { background: rgba(251,191,36,0.05); border: 1px solid rgba(251,191,36,0.2); }
     .preview-panel.pending { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.07); }
     .preview-panel-title { font-size: 11px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
@@ -113,7 +123,7 @@
     .preview-tabs { display: flex; gap: 4px; margin-bottom: 12px; flex-wrap: wrap; }
     .preview-tab { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #888; border-radius: 8px; padding: 7px 14px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.15s; }
     .preview-tab:hover { background: rgba(255,255,255,0.09); color: #ccc; }
-    .preview-tab.active { background: rgba(124,58,237,0.2); border-color: rgba(124,58,237,0.5); color: #c4b5fd; }
+    .preview-tab.active { background: rgba(59,130,246,0.2); border-color: rgba(59,130,246,0.5); color: #BFD4FF; }
     .preview-frame-wrap { border-radius: 10px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); background: #fff; margin-bottom: 14px; position: relative; }
     .preview-iframe { width: 100%; height: 500px; border: none; display: block; }
     .preview-frame-loading { position: absolute; inset: 0; background: rgba(13,13,13,0.7); display: flex; align-items: center; justify-content: center; font-size: 13px; color: #888; font-weight: 600; pointer-events: none; transition: opacity 0.3s; }
@@ -126,8 +136,8 @@
 
     /* Self-serve rebuild */
     .rebuild-bar { margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.07); display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
-    .rebuild-btn { background: transparent; color: var(--brand, #a78bfa); border: 1px solid rgba(124,58,237,0.45); border-radius: 10px; padding: 10px 18px; font-size: 13px; font-weight: 800; cursor: pointer; transition: background 0.2s, opacity 0.2s; }
-    .rebuild-btn:hover:not(:disabled) { background: rgba(124,58,237,0.12); }
+    .rebuild-btn { background: transparent; color: var(--brand, #93B8FF); border: 1px solid rgba(59,130,246,0.45); border-radius: 10px; padding: 10px 18px; font-size: 13px; font-weight: 800; cursor: pointer; transition: background 0.2s, opacity 0.2s; }
+    .rebuild-btn:hover:not(:disabled) { background: rgba(59,130,246,0.12); }
     .rebuild-btn:disabled { opacity: 0.6; cursor: not-allowed; }
     .rebuild-hint { font-size: 12px; color: #777; line-height: 1.4; flex: 1 1 200px; }
     .rebuild-err { font-size: 12px; color: #f87171; font-weight: 600; width: 100%; }
@@ -138,17 +148,38 @@
     .dns-table { width: 100%; border-collapse: collapse; font-size: 12px; }
     .dns-table th { text-align: left; padding: 4px 12px 4px 0; color: #555; font-weight: 600; }
     .dns-table td { padding: 7px 12px 7px 0; border-top: 1px solid rgba(255,255,255,0.05); }
-    .dns-type { color: #a78bfa; font-weight: 700; }
+    .dns-type { color: #93B8FF; font-weight: 700; }
     .dns-host { color: #fff; font-family: monospace; }
     .dns-val  { color: var(--accent); font-family: monospace; word-break: break-all; }
     .dns-ttl  { color: #555; }
     .dns-note { font-size: 12px; color: #888; margin-top: 10px; line-height: 1.5; }
-    .domain-active-tag { font-size: 11px; font-weight: 700; background: rgba(34,197,94,0.15); color: var(--accent); border: 1px solid rgba(34,197,94,0.3); padding: 3px 10px; border-radius: 100px; }
+    .domain-active-tag { font-size: 11px; font-weight: 700; background: rgba(59,130,246,0.15); color: var(--accent); border: 1px solid rgba(59,130,246,0.3); padding: 3px 10px; border-radius: 100px; }
   </style>
 </head>
 <body>
 <header>
-  <a class="logo" href="/"><span>Arrowtrack</span><span> Forge</span></a>
+  <a class="logo" href="/" aria-label="Arrowtrack Forge">
+    <svg width="40" height="33" viewBox="0 0 120 100" aria-hidden="true">
+      <defs>
+        <linearGradient id="lgSteel" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#CBD2DB"/><stop offset="0.2" stop-color="#9AA3AF"/>
+          <stop offset="0.55" stop-color="#5A6573"/><stop offset="1" stop-color="#333942"/>
+        </linearGradient>
+        <linearGradient id="lgHammer" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#93B8FF"/><stop offset="1" stop-color="#2D6BE0"/>
+        </linearGradient>
+      </defs>
+      <g transform="rotate(34 60 52)">
+        <rect x="56.5" y="14" width="7" height="64" rx="3.5" fill="#54627a" stroke="#0E1116" stroke-width="1.5"/>
+        <rect x="44" y="6" width="32" height="18" rx="5" fill="url(#lgHammer)" stroke="#0E1116" stroke-width="1.6"/>
+        <rect x="46" y="8.5" width="28" height="4" rx="2" fill="#ffffff" opacity="0.4"/>
+      </g>
+      <path fill="url(#lgSteel)" stroke="#0E1116" stroke-width="2" stroke-linejoin="round"
+        d="M10 50 L37 42 L105 42 L105 55 L88 55 C84 62 79 65 74 69 L74 75 L97 75 L97 88 L25 88 L25 75 L50 75 L50 69 C45 65 40 62 35 55 Z"/>
+      <path fill="#ffffff" opacity="0.35" d="M37 42 L105 42 L105 45 L37 45 Z"/>
+    </svg>
+    <span class="logo-text"><span class="logo-eyebrow">Arrowtrack</span><span class="logo-word">Forge</span></span>
+  </a>
   <div class="header-right">
     <span class="greeting" id="greeting"></span>
     <button class="logout" onclick="logout()">Log out</button>
@@ -264,7 +295,7 @@
       const urlBar = isDeployed
         ? '<div class="preview-url-bar">'
             + '<a class="live-btn" href="' + liveBase + '" target="_blank">🌐 Open Your App →</a>'
-            + (hasDomain && !domainActive ? '<span style="font-size:13px;color:#888;"> Preview: <a href="' + p.deploy_url + '" target="_blank" style="color:#a78bfa;">' + p.deploy_url + '</a></span>' : '')
+            + (hasDomain && !domainActive ? '<span style="font-size:13px;color:#888;"> Preview: <a href="' + p.deploy_url + '" target="_blank" style="color:#93B8FF;">' + p.deploy_url + '</a></span>' : '')
             + '</div>'
         : '';
 
