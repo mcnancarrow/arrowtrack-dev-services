@@ -22,14 +22,50 @@ async function createGitHubRepo(refCode, projectName, files) {
   const org = process.env.GITHUB_ORG || 'arrowtrack-forge-builds';
   const repoName = toSlug(refCode);
 
-  // Create the repo (private, no auto-init — we push a tree ourselves)
-  const { data: repo } = await octokit.repos.createInOrg({
-    org,
-    name: repoName,
-    description: `Arrowtrack Forge — ${projectName || refCode}`,
-    private: true,
-    auto_init: false,
-  });
+  // Create the repo with auto_init:true so it has an initial commit. The Git Data
+  // API (blobs/trees/commits) returns 409 "Git Repository is empty" on a repo with
+  // no commits, so we MUST NOT use auto_init:false here. Tolerate a repo that already
+  // exists (422) — e.g. orphaned empties from before this fix — and reuse it.
+  let repoUrl;
+  try {
+    const { data: repo } = await octokit.repos.createInOrg({
+      org,
+      name: repoName,
+      description: `Arrowtrack Forge — ${projectName || refCode}`,
+      private: true,
+      auto_init: true,
+    });
+    repoUrl = repo.html_url;
+  } catch (err) {
+    if (err.status !== 422) throw err;               // real failure — surface it
+    const { data: repo } = await octokit.repos.get({ owner: org, repo: repoName });
+    repoUrl = repo.html_url;                          // repo already existed — reuse
+  }
+
+  // Resolve main's current commit (the initial commit). auto_init can lag a moment,
+  // so retry briefly. If the repo was a pre-existing empty one (no commits at all),
+  // seed it via the Contents API, which initialises the git database.
+  let baseSha = null;
+  for (let i = 0; i < 6; i++) {
+    try {
+      const { data: ref } = await octokit.git.getRef({ owner: org, repo: repoName, ref: 'heads/main' });
+      baseSha = ref.object.sha;
+      break;
+    } catch (err) {
+      if (err.status !== 404 && err.status !== 409) throw err;
+      if (i === 5) {
+        await octokit.repos.createOrUpdateFileContents({
+          owner: org, repo: repoName, path: '.forge-init',
+          message: 'Initialise repository',
+          content: Buffer.from('forge').toString('base64'),
+        });
+        const { data: ref } = await octokit.git.getRef({ owner: org, repo: repoName, ref: 'heads/main' });
+        baseSha = ref.object.sha;
+        break;
+      }
+      await new Promise(r => setTimeout(r, 1000));
+    }
+  }
 
   // Create a blob for every generated file in parallel
   const treeItems = await Promise.all(
@@ -43,17 +79,18 @@ async function createGitHubRepo(refCode, projectName, files) {
     })
   );
 
-  // Single tree → single commit → main branch
+  // Single tree (app files only — replaces the auto-init README) → commit on top of
+  // the initial commit → fast-forward main.
   const { data: tree }   = await octokit.git.createTree({ owner: org, repo: repoName, tree: treeItems });
   const { data: commit } = await octokit.git.createCommit({
     owner: org, repo: repoName,
     message: `Initial app — Arrowtrack Forge (${refCode})`,
     tree: tree.sha,
-    parents: [],
+    parents: [baseSha],
   });
-  await octokit.git.createRef({ owner: org, repo: repoName, ref: 'refs/heads/main', sha: commit.sha });
+  await octokit.git.updateRef({ owner: org, repo: repoName, ref: 'heads/main', sha: commit.sha });
 
-  return repo.html_url;
+  return repoUrl;
 }
 
 // ─── Netlify: create site → create deploy with SHA1 manifest → upload files ──
