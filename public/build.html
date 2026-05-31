@@ -478,17 +478,6 @@
       <label>Business Phone</label>
       <input type="tel" id="business_phone" placeholder="e.g. 303-478-9271" autocomplete="tel"/>
     </div>
-    <div class="field-group menu-upload-group" id="contentGroup">
-      <label id="contentLabel">📎 Your Content &amp; Materials <span style="font-weight:400;color:#6b9;font-size:12px;">— optional, but the more real content you give us, the more accurate your app</span></label>
-      <p class="content-hint" id="contentHint">Upload photos or documents — menus, product lists, price sheets, brochures, screenshots — and we'll read them automatically. Or just paste your content below.</p>
-      <div class="content-upload" id="contentDrop">
-        <input type="file" id="contentFiles" accept="image/*,application/pdf" multiple style="display:none" onchange="handleContentUpload(this.files)"/>
-        <button type="button" class="content-upload-btn" onclick="document.getElementById('contentFiles').click()">⬆ Upload images / PDFs</button>
-        <span class="content-upload-status" id="contentUploadStatus"></span>
-      </div>
-      <textarea id="content_material" placeholder="Paste any real content here — product or service lists, pricing, hours, about-us text, menu items… The AI uses your exact words instead of generic placeholders." oninput="autoSave()"></textarea>
-      <div style="font-size:12px;color:#6b9;margin-top:8px;">✓ We use your real content — no generic filler</div>
-    </div>
   </div>
 
   <!-- STEP 2: PLATFORMS & DELIVERABLES -->
@@ -672,6 +661,17 @@
     <div class="field-group" style="margin-top:24px;">
       <label>Any user flows or journeys to describe?</label>
       <textarea id="user_flows" placeholder="e.g. Customer opens app → browses menu → adds to cart → checks out → receives push confirmation..."></textarea>
+    </div>
+    <div class="field-group menu-upload-group" id="contentGroup" style="margin-top:24px;">
+      <label id="contentLabel">📎 Your Content &amp; Materials <span style="font-weight:400;color:#6b9;font-size:12px;">— optional, but the more real content you give us, the more accurate your app</span></label>
+      <p class="content-hint" id="contentHint">Now that we know your screens, add the real content for them — menus, product lists, price sheets, brochures, about-us copy. Upload photos or PDFs and we'll read them automatically, or paste below.</p>
+      <div class="content-upload" id="contentDrop">
+        <input type="file" id="contentFiles" accept="image/*,application/pdf" multiple style="display:none" onchange="handleContentUpload(this.files)"/>
+        <button type="button" class="content-upload-btn" onclick="document.getElementById('contentFiles').click()">⬆ Upload images / PDFs</button>
+        <span class="content-upload-status" id="contentUploadStatus"></span>
+      </div>
+      <textarea id="content_material" placeholder="Paste any real content here — product or service lists, pricing, hours, about-us text, menu items… The AI uses your exact words instead of generic placeholders." oninput="autoSave()"></textarea>
+      <div style="font-size:12px;color:#6b9;margin-top:8px;">✓ We use your real content — no generic filler</div>
     </div>
   </div>
 
